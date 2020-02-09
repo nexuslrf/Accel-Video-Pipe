@@ -16,6 +16,7 @@ using namespace std;
 int modelWidth=192;
 int modelHeight=256;
 cv::Scalar mean(0.485, 0.456, 0.406), stdev(0.229, 0.224, 0.225);
+vector<int> flipOrder{0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15};
 
 cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCrop)
 {
@@ -33,6 +34,21 @@ inline void matToTensor(cv::Mat const& src, torch::Tensor& out)
     // stride=width*channels
     memcpy(out.data_ptr(), src.data, out.numel() * sizeof(float));
     return;
+}
+
+void flipBack(torch::Tensor& src)
+{
+    // NCHW
+    src = src.flip(3);
+    auto tmp = torch::empty_like(src);
+    for(int i=0; i<(int)flipOrder.size(); i++)
+        tmp.slice(1,i,i+1) = src.slice(1,flipOrder[i], flipOrder[i]+1);
+    src.copy_(tmp);
+}
+
+void gaussianModulation(torch::Tensor& src, float sigma)
+{
+    
 }
 
 int main()
@@ -104,7 +120,7 @@ int main()
     // torch::Tensor modelInput = torch::from_blob(input.data, {1,input.rows, input.cols,3}, torch::kByte);
     // modelInput = modelInput.permute({0,3,1,2});
     auto options = torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false);
-    torch::Tensor tensorFrame_1, tensorFrame_2, modelInput, output;
+    torch::Tensor tensorFrame_1, tensorFrame_2, modelInput;
     tensorFrame_1 = torch::empty({modelHeight, modelWidth, 3}, options);
     tensorFrame_2 = torch::empty({modelHeight, modelWidth, 3}, options);
     matToTensor(cropFrame, tensorFrame_1);
@@ -118,18 +134,28 @@ int main()
 
     vector<torch::jit::IValue> inputs;
     inputs.push_back(modelInput);
-    output = model.forward(inputs).toTensor();
-    cout<<output.sizes()<<endl;
+    auto rawOut = model.forward(inputs).toTensor();
+    cout<<rawOut.sizes()<<endl;
+
+    auto tmpOuts = rawOut.split(1, 0);
+    // auto unFB = torch::Tensor(tmpOuts[1]);
+    flipBack(tmpOuts[1]);
+    auto output = (tmpOuts[0] + tmpOuts[1]) * 0.5;
 
     // cv::waitKey(0);
     // int idx1=0, idx2, idx3, idx4;
     // while(idx1>=0)
     // {
     //     cin>>idx1>>idx2>>idx3>>idx4;
-    //     cout<<modelInput[0][idx2][idx3][idx4]<<endl;
-    //     cout<<modelInput[1][idx2][idx3][191-idx4]<<endl;
-    //     cout<<tensorFrame_1[idx3][idx4][idx2]<<endl;
-    //     cout<<tensorFrame_2[idx3][191-idx4][idx2]<<endl;
+        // cout<<modelInput[0][idx2][idx3][idx4]<<endl;
+        // cout<<modelInput[1][idx2][idx3][191-idx4]<<endl;
+        // cout<<tensorFrame_1[idx3][idx4][idx2]<<endl;
+        // cout<<tensorFrame_2[idx3][191-idx4][idx2]<<endl;
+        // cout<<unFB[0][idx2][idx3][idx4]<<endl;
+        // cout<<tmpOuts[1][0][idx2][idx3][idx4]<<endl;
     // }
-    
+    // auto tA = torch::arange(24).reshape({4, 3, 2});
+    // auto tB = torch::arange(24, 48).reshape({4, 3, 2});
+    // tA.slice(1, 0, 1) = tB.slice(1, 0, 1);
+    // cout<<tA<<endl<<tA.slice(1,0,1);
 }
