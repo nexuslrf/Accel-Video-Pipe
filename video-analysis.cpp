@@ -244,6 +244,7 @@ cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCro
 
     return tempImg; 
 }
+
 inline void updInput(vector<torch::jit::IValue>& inputs, torch::Tensor& inTensor)
 {
     inputs.pop_back();

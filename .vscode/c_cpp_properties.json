@@ -5,6 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/opt/intel/openvino_2020.1.023/opencv/include",
+                "/opt/intel/openvino_2020.1.023/deployment_tools/inference_engine/include",
                 "/Users/liangruofan1/Program/CNN_Deployment/libtorch/include"
             ],
             "defines": [],
