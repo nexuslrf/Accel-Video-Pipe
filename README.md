@@ -6,7 +6,11 @@ AV Pipe :-)
 - [x] Preprocessing
 - [ ] DNN Deployment
     - [x] LibTorch
-        FPS: 2~3fps...
+        Timing Results (ms)
+            PreProcessing:  4
+            NN Processing:  384
+            PostProcessing: 7
+            Visualizing:    0
     - [ ] OpenVINO
     - [ ] TVM
 - [ ] Pipelined Processing
