@@ -3,15 +3,15 @@ AV Pipe :-)
 
 ## Todo
 
-- [ ] Preprocessing
+- [x] Preprocessing
 - [ ] DNN Deployment
-    - [ ] LibTorch
+    - [x] LibTorch
     - [ ] OpenVINO
     - [ ] TVM
 - [ ] Pipelined Processing
     - [ ] Multi-threading
     - [ ] IPC method
-- [ ] Post Processing
+- [x] Post Processing
 
 ```mermaid
 graph TD
