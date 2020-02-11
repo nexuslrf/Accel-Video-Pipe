@@ -2,6 +2,7 @@
 #include <sstream>
 #include <cmath>
 #include <functional> 
+#include <chrono>
 #include <opencv2/dnn.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
@@ -108,13 +109,15 @@ int main()
 #endif
     while (cv::waitKey(1) < 0)
     {
+#ifdef _TIMING
+        auto start = chrono::high_resolution_clock::now();
+#endif
         cap >> frame;
         if (frame.empty())
         {
             cv::waitKey();
             break;
-        }
-        // imshow(kWinName, cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight));     
+        } 
     // }
     
     /* OpenCV pre-processing */
@@ -123,7 +126,9 @@ int main()
     tmpFrame.convertTo(cropFrame, CV_32F);
     cropFrame = (cropFrame / 255 - mean) / stdev;
     cv::flip(cropFrame, flipFrame, +1);
-    
+#ifdef _TIMING
+    auto stop1 = chrono::high_resolution_clock::now(); 
+#endif
     /* LibTorch DNN model processing */
     matToTensor(cropFrame, tensorFrame_1);
     matToTensor(flipFrame, tensorFrame_2);
@@ -131,6 +136,9 @@ int main()
     modelInput = modelInput.permute({0,3,1,2});
     updInput(inputs, modelInput);
     rawOut = model.forward(inputs).toTensor();
+#ifdef _TIMING
+    auto stop2 = chrono::high_resolution_clock::now(); 
+#endif
 
 #ifdef _DEBUG
     cout<<modelInput.sizes()<<" "<<modelInput[0][0][0][0]<<" "<<modelInput[1][0][0][0]<<endl;
@@ -146,6 +154,9 @@ int main()
     getFinalPreds(outputDM, preds, keyPointsList);
     for(auto& keyPoints: keyPointsList)
         keyPoints.multiply(scale);
+#ifdef _TIMING
+    auto stop3 = chrono::high_resolution_clock::now(); 
+#endif
 #ifdef _DEBUG
     auto unFB = torch::Tensor(tmpOuts[1]);
     cout<<outputDM.sizes()<<endl;
@@ -157,6 +168,15 @@ int main()
         if(vis_a[0][i][0])
             cv::circle(showFrame, keyPointsList[0].coords[i], 2, {0, 0, 255});
     cv::imshow(kWinName, showFrame);
+#ifdef _TIMING
+    auto stop4 = chrono::high_resolution_clock::now(); 
+    cout<<"Timing Results:"
+        <<"\nPreProcessing:  "<<chrono::duration_cast<chrono::milliseconds>(stop1-start).count()
+        <<"\nNN Processing:  "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()
+        <<"\nPostProcessing: "<<chrono::duration_cast<chrono::milliseconds>(stop3-stop2).count()
+        <<"\nVisualizing:    "<<chrono::duration_cast<chrono::milliseconds>(stop4-stop3).count()
+        <<"\n";
+#endif
     // cv::waitKey(0);
     }
 

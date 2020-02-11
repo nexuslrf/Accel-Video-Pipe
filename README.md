@@ -6,6 +6,7 @@ AV Pipe :-)
 - [x] Preprocessing
 - [ ] DNN Deployment
     - [x] LibTorch
+        FPS: 2~3fps...
     - [ ] OpenVINO
     - [ ] TVM
 - [ ] Pipelined Processing
