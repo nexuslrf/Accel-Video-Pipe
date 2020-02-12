@@ -6,7 +6,10 @@
                 "${workspaceFolder}/**",
                 "/opt/intel/openvino_2020.1.023/opencv/include",
                 "/opt/intel/openvino_2020.1.023/deployment_tools/inference_engine/include",
-                "/Users/liangruofan1/Program/CNN_Deployment/libtorch/include"
+                "/Users/liangruofan1/Program/CNN_Deployment/libtorch/include",
+                "/Users/liangruofan1/Program/tvm/include",
+                "/Users/liangruofan1/Program/tvm/3rdparty/dlpack/include",
+                "/Users/liangruofan1/Program/tvm/3rdparty/dmlc-core/include"
             ],
             "defines": [],
             "macFrameworkPath": [

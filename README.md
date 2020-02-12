@@ -7,14 +7,14 @@ AV Pipe :-)
 
 - [ ] DNN Deployment
     - [x] LibTorch
-    - [ ] OpenVINO
-    - [ ] TVM
+    - [x] OpenVINO
+    - [x] TVM
     
     | Engine   | Time/ms, BS=2 |
     | -------- | ------------- |
     | LibTorch | 320           |
     | OpenVINO | 170           |
-    |          |               |
+    | TVM      | 800           |
     
 - [ ] Pipelined Processing
     - [ ] Multi-threading

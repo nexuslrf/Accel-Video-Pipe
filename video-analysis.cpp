@@ -65,8 +65,8 @@ int main()
     inputs.push_back(modelInput);
     // libTorch models
     torch::jit::script::Module model, gaussianModulation;
-    model = torch::jit::load("../../HRNet-Human-Pose-Estimation/torchScript_pose_resnet_34_256x192.zip");
-    gaussianModulation = torch::jit::load("../../HRNet-Human-Pose-Estimation/torchScript_gaussian_modulation.zip");
+    model = torch::jit::load("../../HRNet-Human-Pose-Estimation/pose_resnet_34_256x192.zip");
+    gaussianModulation = torch::jit::load("../../HRNet-Human-Pose-Estimation/gaussian_modulation.zip");
 
     /* Read source data */
 //     

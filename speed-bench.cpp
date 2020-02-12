@@ -9,6 +9,10 @@
 #include <opencv2/opencv.hpp>
 #include <torch/script.h>
 #include <inference_engine.hpp>
+#include <dlpack/dlpack.h>
+#include <tvm/runtime/module.h>
+#include <tvm/runtime/registry.h>
+#include <tvm/runtime/packed_func.h>
 // #ifdef CV_CXX11
 #include <mutex>
 #include <thread>
@@ -41,49 +45,109 @@ void fillBlobRandom(InferenceEngine::Blob::Ptr& inputBlob) {
 
 
 int modelWidth=192, modelHeight=256;
-int batchSize = 1, numJoints=17;
+int batchSize = 2, numJoints=17;
 int numLoop = 10;
+string model_name = "/Users/liangruofan1/Program/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192";
 int main()
 {
-    torch::NoGradGuard no_grad; // Disable back-grad buffering
-    torch::Tensor inTensor, rawOut;
-    vector<torch::jit::IValue> inputs;
-    inputs.push_back(inTensor);
-    torch::jit::script::Module model;
-    model = torch::jit::load("../../HRNet-Human-Pose-Estimation/torchScript_pose_resnet_34_256x192.zip");
-    for(int i=0; i<numLoop; i++)
+    /* LibTorch */
     {
-        auto stop1 = chrono::high_resolution_clock::now(); 
-        inTensor = torch::randn({batchSize, 3, modelHeight, modelWidth}, torch::kFloat32);
-        updInput(inputs, inTensor);
-        rawOut = model.forward(inputs).toTensor();
-        auto stop2 = chrono::high_resolution_clock::now(); 
-        cout<<"LibTorch Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+        torch::NoGradGuard no_grad; // Disable back-grad buffering
+        torch::Tensor inTensor, rawOut;
+        vector<torch::jit::IValue> inputs;
+        inputs.push_back(inTensor);
+        torch::jit::script::Module model;
+        model = torch::jit::load(model_name+".zip");
+        for(int i=0; i<numLoop; i++)
+        {
+            auto stop1 = chrono::high_resolution_clock::now(); 
+            inTensor = torch::randn({batchSize, 3, modelHeight, modelWidth}, torch::kFloat32);
+            updInput(inputs, inTensor);
+            rawOut = model.forward(inputs).toTensor();
+            auto stop2 = chrono::high_resolution_clock::now(); 
+            cout<<"LibTorch Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+        }
     }
 
-    string model_xml = "/Users/liangruofan1/Program/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192.xml";
-    string model_bin = "/Users/liangruofan1/Program/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192.bin";
-    InferenceEngine::Core ie;
-    auto network = ie.ReadNetwork(model_xml, model_bin);
-    network.setBatchSize(batchSize);
-    auto input_info = network.getInputsInfo().begin()->second;
-    string input_name = network.getInputsInfo().begin()->first;
-    auto output_info = network.getOutputsInfo().begin()->second;
-    string output_name = network.getOutputsInfo().begin()->first;
-    auto executable_network = ie.LoadNetwork(network, "CPU"); // Unknown problems for GPU version
-    auto infer_request = executable_network.CreateInferRequest();
-    auto tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32,
-                                      {(uint)batchSize, 3, (uint)modelHeight, (uint)modelWidth},
-                                      InferenceEngine::Layout::NCHW);
-    for(int i=0; i<numLoop; i++)
-    {                                  
-        auto stop1 = chrono::high_resolution_clock::now();                                
-        auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
-        InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t*)inData.data_ptr());
-        infer_request.SetBlob(input_name, inBlob);
-        infer_request.Infer();
-        InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
-        auto stop2 = chrono::high_resolution_clock::now(); 
-        cout<<"OpenVINO Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+    /* OpenVINO */
+    {
+        string model_xml = model_name+".xml";
+        string model_bin = model_name+".bin";
+        InferenceEngine::Core ie;
+        auto network = ie.ReadNetwork(model_xml, model_bin);
+        network.setBatchSize(batchSize);
+        auto input_info = network.getInputsInfo().begin()->second;
+        string input_name = network.getInputsInfo().begin()->first;
+        auto output_info = network.getOutputsInfo().begin()->second;
+        string output_name = network.getOutputsInfo().begin()->first;
+        auto executable_network = ie.LoadNetwork(network, "CPU"); // Unknown problems for GPU version
+        auto infer_request = executable_network.CreateInferRequest();
+        auto tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32,
+                                        {(uint)batchSize, 3, (uint)modelHeight, (uint)modelWidth},
+                                        InferenceEngine::Layout::NCHW);
+        for(int i=0; i<numLoop; i++)
+        {                                  
+            auto stop1 = chrono::high_resolution_clock::now();                                
+            auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
+            InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t*)inData.data_ptr());
+            infer_request.SetBlob(input_name, inBlob);
+            infer_request.Infer();
+            InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+            auto stop2 = chrono::high_resolution_clock::now(); 
+            cout<<"OpenVINO Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+        }
     }
+
+    /* TVM */
+    {
+        string module_file = model_name+".so";
+        string module_param = model_name+".params";
+        string module_json = model_name+".json";
+        tvm::runtime::Module mod_dylib = tvm::runtime::Module::LoadFromFile(module_file);
+        ifstream json_in(module_json, ios::in);
+        string json_data((istreambuf_iterator<char>(json_in)), istreambuf_iterator<char>());
+        json_in.close();
+        ifstream params_in(module_param, ios::binary);
+        string params_data((istreambuf_iterator<char>(params_in)), istreambuf_iterator<char>());
+        params_in.close();
+        TVMByteArray params_arr;
+        params_arr.data = params_data.c_str();
+        params_arr.size = params_data.length();
+
+        int dtype_code = kDLFloat;
+        int dtype_bits = 32;
+        int dtype_lanes = 1;
+        int device_type = kDLMetal;
+        int device_id = 0;
+
+        tvm::runtime::Module mod = (*tvm::runtime::Registry::Get("tvm.graph_runtime.create"))
+            (json_data, mod_dylib, device_type, device_id);
+        
+        DLTensor *x, *y;
+        int in_ndim = 4, out_ndim = 4;
+        int64_t in_shape[4] = {batchSize, 3, 256, 192}, out_shape[4] = {batchSize, 17, 64, 48};
+        cout<<"Init\n";
+        TVMArrayAlloc(in_shape, in_ndim, dtype_code, dtype_bits, dtype_lanes, kDLCPU, device_id, &x);
+        TVMArrayAlloc(out_shape, out_ndim, dtype_code, dtype_bits, dtype_lanes, kDLCPU, device_id, &y);
+
+        auto set_input = mod.GetFunction("set_input");
+        auto load_params = mod.GetFunction("load_params");
+        auto run = mod.GetFunction("run");
+        auto get_output = mod.GetFunction("get_output");
+        load_params(params_arr);
+        cout<<"start run\n";
+        for(int i=0 ;i< numLoop; i++)
+        {
+            auto stop1 = chrono::high_resolution_clock::now(); 
+            auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
+            memcpy(x->data, inData.data_ptr(), inData.numel()*sizeof(float));
+            set_input("input", x);
+            run();
+            get_output(0, y);
+            auto stop2 = chrono::high_resolution_clock::now(); 
+            cout<<"TVM Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+        }
+
+    }
+
 }
