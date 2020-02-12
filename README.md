@@ -14,7 +14,7 @@ AV Pipe :-)
     | -------- | ------------- |
     | LibTorch | 320           |
     | OpenVINO | 170           |
-    | TVM      | 800           |
+    | TVM      | 900           |
     
 - [ ] Pipelined Processing
     - [ ] Multi-threading
