@@ -23,9 +23,11 @@
 
       ![](figs/motion.png)
 
-    * Sota for video activity detection 2019: SlowFast Networks
+    * Sota for video activity detection 2019: SlowFast Networks [7]
 
 * Object Detection
+
+  * 
 
 * Object Tracking/ Estimation: 
   * Face
@@ -56,6 +58,7 @@
 
 * MediaPipe
 * GStreamer
+* DFF video detection (*sota*)
 
 ### Hardware Accelerator
 
@@ -76,3 +79,4 @@
 5. [Christoph Feichtenhofer](https://feichtenhofer.github.io/)
 6. [光流估计——从传统方法到深度学习](https://zhuanlan.zhihu.com/p/74460341)
 7. [SlowFast Networks for Video Recognition](https://ai.facebook.com/blog/slowfast-video-recognition-through-dual-frame-rate-analysis/)
+8. [Deep-Feature-Flow](https://github.com/msracver/Deep-Feature-Flow), CVPR 2017
