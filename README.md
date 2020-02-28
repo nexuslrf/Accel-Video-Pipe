@@ -13,8 +13,9 @@ AV Pipe :-)
     | Engine   | Time/ms, BS=2 |
     | -------- | ------------- |
     | LibTorch | 320           |
-    | OpenVINO | 170           |
-    | TVM      | 900           |
+    | OpenVINO | 150           |
+    | TVM      | 600           |
+    | ONNX RT  | 300           |
     
 - [ ] Pipelined Processing
     - [ ] Multi-threading

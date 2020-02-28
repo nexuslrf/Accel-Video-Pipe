@@ -9,7 +9,8 @@
                 "/Users/liangruofan1/Program/CNN_Deployment/libtorch/include",
                 "/Users/liangruofan1/Program/tvm/include",
                 "/Users/liangruofan1/Program/tvm/3rdparty/dlpack/include",
-                "/Users/liangruofan1/Program/tvm/3rdparty/dmlc-core/include"
+                "/Users/liangruofan1/Program/tvm/3rdparty/dmlc-core/include",
+                "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/include"
             ],
             "defines": [],
             "macFrameworkPath": [
