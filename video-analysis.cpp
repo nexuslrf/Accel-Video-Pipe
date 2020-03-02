@@ -64,9 +64,10 @@ int main()
     vector<torch::jit::IValue> inputs;
     inputs.push_back(modelInput);
     // libTorch models
+    string modelDir = "C:\\Users\\Ruofan\\Programming\\Accel-Video-Pipe\\models";
     torch::jit::script::Module model, gaussianModulation;
-    model = torch::jit::load("../../HRNet-Human-Pose-Estimation/pose_resnet_34_256x192.zip");
-    gaussianModulation = torch::jit::load("../../HRNet-Human-Pose-Estimation/gaussian_modulation.zip");
+    model = torch::jit::load(modelDir + "\\pose_resnet_34_256x192.zip");
+    gaussianModulation = torch::jit::load(modelDir + "\\gaussian_modulation.zip");
 
     /* Read source data */
 //     
@@ -75,7 +76,7 @@ int main()
 //     else
 //         cap.open(parser.get<int>("device"));
 // */ 
-    cap.open("../kunkun_nmsl.mp4");
+    cap.open(modelDir + "\\kunkun_nmsl.mp4");
 //     // cap.open(0);
 //     // cap.set(CAP_PROP_FPS, 20);
     fps = cap.get(cv::CAP_PROP_FPS);

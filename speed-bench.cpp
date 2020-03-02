@@ -9,12 +9,12 @@
 #include <opencv2/opencv.hpp>
 #include <torch/script.h>
 #include <inference_engine.hpp>
-#include <dlpack/dlpack.h>
-#include <tvm/runtime/module.h>
-#include <tvm/runtime/registry.h>
-#include <tvm/runtime/packed_func.h>
+// #include <dlpack/dlpack.h>
+// #include <tvm/runtime/module.h>
+// #include <tvm/runtime/registry.h>
+// #include <tvm/runtime/packed_func.h>
 #include <vector>
-#include <onnxruntime_cxx_api.h>
+// #include <onnxruntime_cxx_api.h>
 // #ifdef CV_CXX11
 #include <mutex>
 #include <thread>
@@ -49,7 +49,7 @@ void fillBlobRandom(InferenceEngine::Blob::Ptr& inputBlob) {
 int modelWidth=192, modelHeight=256;
 int batchSize = 2, numJoints=17;
 int numLoop = 10;
-string model_name = "/Users/liangruofan1/Program/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192";
+string model_name = "C:\\Users\\Ruofan\\Programming\\Accel-Video-Pipe\\models\\pose_resnet_34_256x192";
 int main()
 {
     /* LibTorch */
@@ -72,6 +72,7 @@ int main()
     }
 
     /* OpenVINO */
+    // CPU Version
     {
         string model_xml = model_name+".xml";
         string model_bin = model_name+".bin";
@@ -96,7 +97,37 @@ int main()
             infer_request.Infer();
             InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
             auto stop2 = chrono::high_resolution_clock::now(); 
-            cout<<"OpenVINO Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+            cout<<"OpenVINO CPU Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+        }
+    }
+
+    /* OpenVINO */
+    // GPU Version
+    {
+        string model_xml = model_name + ".xml";
+        string model_bin = model_name + ".bin";
+        InferenceEngine::Core ie;
+        auto network = ie.ReadNetwork(model_xml, model_bin);
+        network.setBatchSize(batchSize);
+        auto input_info = network.getInputsInfo().begin()->second;
+        string input_name = network.getInputsInfo().begin()->first;
+        auto output_info = network.getOutputsInfo().begin()->second;
+        string output_name = network.getOutputsInfo().begin()->first;
+        auto executable_network = ie.LoadNetwork(network, "GPU"); // Unknown problems for GPU version
+        auto infer_request = executable_network.CreateInferRequest();
+        auto tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32,
+                                                 {(uint)batchSize, 3, (uint)modelHeight, (uint)modelWidth},
+                                                 InferenceEngine::Layout::NCHW);
+        for (int i = 0; i < numLoop; i++)
+        {
+            auto stop1 = chrono::high_resolution_clock::now();
+            auto inData = torch::randn({batchSize, 3, modelHeight, modelWidth}, torch::kF32);
+            InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t *)inData.data_ptr());
+            infer_request.SetBlob(input_name, inBlob);
+            infer_request.Infer();
+            InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+            auto stop2 = chrono::high_resolution_clock::now();
+            cout << "OpenVINO GPU Processing Time: " << chrono::duration_cast<chrono::milliseconds>(stop2 - stop1).count() << "ms\n";
         }
     }
 
@@ -154,51 +185,51 @@ int main()
 
     /* ONNX Runtime */
     // Ref: https://github.com/microsoft/onnxruntime/blob/master/csharp/test/Microsoft.ML.OnnxRuntime.EndToEndTests.Capi/CXX_Api_Sample.cpp
-    {
-        // initialize  enviroment...one enviroment per process
-        // enviroment maintains thread pools and other state info
-        Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "test");
+    // {
+    //     // initialize  enviroment...one enviroment per process
+    //     // enviroment maintains thread pools and other state info
+    //     Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "test");
 
-        // initialize session options if needed
-        Ort::SessionOptions session_options;
-        session_options.SetIntraOpNumThreads(1);
-        session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+    //     // initialize session options if needed
+    //     Ort::SessionOptions session_options;
+    //     session_options.SetIntraOpNumThreads(1);
+    //     session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
-        const char* model_path = (model_name+".onnx").c_str();
-        Ort::Session session(env, model_path, session_options);
-        //*************************************************************************
-        // print model input layer (node names, types, shape etc.)
-        Ort::AllocatorWithDefaultOptions allocator;
+    //     const char* model_path = (model_name+".onnx").c_str();
+    //     Ort::Session session(env, model_path, session_options);
+    //     //*************************************************************************
+    //     // print model input layer (node names, types, shape etc.)
+    //     Ort::AllocatorWithDefaultOptions allocator;
 
-        // print number of model input nodes
-        size_t num_input_nodes = session.GetInputCount();
-        std::vector<int64_t> input_node_dims = {batchSize, 3, modelHeight, modelWidth};  // simplify... this model has only 1 input node {1, 3, 224, 224}.
-                                                // Otherwise need vector<vector<>>
+    //     // print number of model input nodes
+    //     size_t num_input_nodes = session.GetInputCount();
+    //     std::vector<int64_t> input_node_dims = {batchSize, 3, modelHeight, modelWidth};  // simplify... this model has only 1 input node {1, 3, 224, 224}.
+    //                                             // Otherwise need vector<vector<>>
 
-        size_t input_tensor_size = batchSize * 3 * modelHeight * modelWidth;
-        std::vector<float> input_tensor_values(input_tensor_size);
-        std::vector<const char*> input_node_names = {"input"};
-        std::vector<const char*> output_node_names = {"output"};
+    //     size_t input_tensor_size = batchSize * 3 * modelHeight * modelWidth;
+    //     std::vector<float> input_tensor_values(input_tensor_size);
+    //     std::vector<const char*> input_node_names = {"input"};
+    //     std::vector<const char*> output_node_names = {"output"};
 
-        // initialize input data with values in [0.0, 1.0]
+    //     // initialize input data with values in [0.0, 1.0]
         
 
-        // create input tensor object from data values
-        auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    //     // create input tensor object from data values
+    //     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 
-        // score model & input tensor, get back output tensor
-        // assert(output_tensors.size() == 1 && output_tensors.front().IsTensor());
+    //     // score model & input tensor, get back output tensor
+    //     // assert(output_tensors.size() == 1 && output_tensors.front().IsTensor());
         
-        for(int i=0; i<numLoop; i++)
-        {                                  
-            auto stop1 = chrono::high_resolution_clock::now();                                
-            auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
-            Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, (float_t*)inData.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
-            auto output_tensors = session.Run(Ort::RunOptions{nullptr}, input_node_names.data(), &input_tensor, 1, output_node_names.data(), 1);
-            auto stop2 = chrono::high_resolution_clock::now(); 
-            cout<<"ONNX Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
-        }
+    //     for(int i=0; i<numLoop; i++)
+    //     {                                  
+    //         auto stop1 = chrono::high_resolution_clock::now();                                
+    //         auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
+    //         Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, (float_t*)inData.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
+    //         auto output_tensors = session.Run(Ort::RunOptions{nullptr}, input_node_names.data(), &input_tensor, 1, output_node_names.data(), 1);
+    //         auto stop2 = chrono::high_resolution_clock::now(); 
+    //         cout<<"ONNX Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+    //     }
 
 
-    }
+    // }
 }

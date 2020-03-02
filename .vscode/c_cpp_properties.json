@@ -1,25 +1,23 @@
 {
     "configurations": [
         {
-            "name": "Mac",
+            "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/opt/intel/openvino_2020.1.023/opencv/include",
-                "/opt/intel/openvino_2020.1.023/deployment_tools/inference_engine/include",
-                "/Users/liangruofan1/Program/CNN_Deployment/libtorch/include",
-                "/Users/liangruofan1/Program/tvm/include",
-                "/Users/liangruofan1/Program/tvm/3rdparty/dlpack/include",
-                "/Users/liangruofan1/Program/tvm/3rdparty/dmlc-core/include",
-                "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/include"
+                "C:\\Program Files (x86)\\IntelSWTools\\openvino\\opencv\\include",
+                "C:\\Users\\Ruofan\\Programming\\Libraries\\libtorch\\include",
+                "C:\\Program Files (x86)\\IntelSWTools\\openvino\\inference_engine\\include"
             ],
-            "defines": [],
-            "macFrameworkPath": [
-                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks"
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
             ],
-            "compilerPath": "/usr/bin/clang",
+            "windowsSdkVersion": "10.0.18362.0",
+            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.24.28314/bin/Hostx64/x64/cl.exe",
             "cStandard": "c11",
             "cppStandard": "c++17",
-            "intelliSenseMode": "clang-x64"
+            "intelliSenseMode": "msvc-x64"
         }
     ],
     "version": 4
