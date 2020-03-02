@@ -8,14 +8,17 @@ AV Pipe :-)
 - [ ] DNN Deployment
     - [x] LibTorch
     - [x] OpenVINO
-    - [x] TVM
+    - [ ] TVM (Not well supported)
     
-    | Engine   | Time/ms, BS=2 |
-    | -------- | ------------- |
-    | LibTorch | 320           |
-    | OpenVINO | 150           |
-    | TVM      | 600           |
-    | ONNX RT  | 300           |
+    CPU: Intel(R) Core(TM) i7-6650U CPU @ 2.20GHz
+    GPU: Intel(R) Iris(R) Graphics 540
+
+    | Engine        | Time/ms, BS=2 |
+    | ----------    | ------------- |
+    | LibTorch      | 500           |
+    | OpenVINO CPU  | 150           |
+    | OpenVINO GPU  | 170           |
+    | ONNX RT       | -             |
     
 - [ ] Pipelined Processing
     - [ ] Multi-threading
