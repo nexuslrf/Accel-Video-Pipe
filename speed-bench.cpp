@@ -49,7 +49,7 @@ void fillBlobRandom(InferenceEngine::Blob::Ptr& inputBlob) {
 int modelWidth=192, modelHeight=256;
 int batchSize = 2, numJoints=17;
 int numLoop = 10;
-string model_name = "/Users/liangruofan1/Program/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192";
+string model_name = "/Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192";
 int main()
 {
     /* LibTorch */

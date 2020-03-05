@@ -9,6 +9,7 @@ AV Pipe :-)
     - [x] LibTorch
     - [x] OpenVINO
     - [x] TVM
+    - [x] ONNX
     
     | Engine   | Time/ms, BS=2 |
     | -------- | ------------- |
@@ -23,7 +24,24 @@ AV Pipe :-)
     
 - [x] Post Processing
 
+
+
+Pose Pipe:
+
 ```mermaid
 graph TD
 A[PreProcessing: Normalize]-->B[CNN Model]-->C[Gaussian Mod]-->D[Max Pred]
 ```
+
+Palm Detection
+
+````mermaid
+graph TD
+A[PreProc: Normalize]-->B[NN Model]-->C{raw box}
+B-->D{raw score}
+C-->E[decode box]
+D-->F[sigmoid]
+E-->G[masking]
+F-->G
+G-->H[weighted_NMS]
+````
