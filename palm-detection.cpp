@@ -18,9 +18,10 @@
 using namespace std;
 
 int modelWidth = 256, modelHeight = 256;
-int numAnchors = 2944;
+int numAnchors = 2944, batchSize = 1;
 
 cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCrop);
+inline void matToTensor(cv::Mat const& src, torch::Tensor& out);
 
 int main()
 {
@@ -44,9 +45,20 @@ int main()
     auto frame = cv::imread(testImg);
     int rawHeight = frame.rows, rawWidth = frame.cols;
     int cropWidthLowBnd, cropWidth, cropHeightLowBnd, cropHeight;
+
+    torch::Tensor inputRawTensor = torch::empty({modelHeight, modelWidth, 3}, torch::kFloat32),
+                inputTensor;
+
+    Ort::AllocatorWithDefaultOptions allocator;
+    std::vector<int64_t> input_node_dims = {batchSize, 3, modelHeight, modelWidth};
+    size_t input_tensor_size = batchSize * 3 * modelHeight * modelWidth;
+    std::vector<float> input_tensor_values(input_tensor_size);
+    std::vector<const char*> input_node_names = {"input"};
+    std::vector<const char*> output_node_names = {"output1", "output2"};
+    auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     // show pic
-    cv::imshow("PalmDetection", frame);
-    cv::waitKey();
+    // cv::imshow("PalmDetection", frame);
+    // cv::waitKey();
     // OpenCV pre-processing
     cv::Mat showFrame, cropFrame, tmpFrame;
     // cropping long edge
@@ -66,7 +78,18 @@ int main()
     cv::cvtColor(showFrame, tmpFrame, cv::COLOR_BGR2RGB);
     tmpFrame.convertTo(cropFrame, CV_32F);
     cropFrame = cropFrame / 127.5 - 1.0;
-    
+    cout<<cropFrame({0,0,4,4})<<endl;
+    matToTensor(cropFrame, inputRawTensor);
+    inputTensor = inputRawTensor.permute({2,0,1}).to(torch::kCPU, false, true);
+    Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, 
+                (float_t*)inputTensor.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
+    auto output_tensors = session.Run(Ort::RunOptions{nullptr}, 
+                input_node_names.data(), &input_tensor, 1, output_node_names.data(), 2);
+    cout<<output_tensors.size()<<"\n";
+    float* rawBox = output_tensors[0].GetTensorMutableData<float>();
+    float* rawScore = output_tensors[1].GetTensorMutableData<float>();
+    // Decode Box
+
 }
 
 cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCrop)
@@ -78,4 +101,16 @@ cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCro
     // normalize
 
     return tempImg; 
+}
+
+inline void matToTensor(cv::Mat const& src, torch::Tensor& out)
+{
+    // stride=width*channels
+    memcpy(out.data_ptr(), src.data, out.numel() * sizeof(float));
+    return;
+}
+
+void decodeBoxes(const torch::Tensor &rawBoxes, const torch::Tensor &anchors, torch::Tensor &boxes)
+{
+    float x_center
 }

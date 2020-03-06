@@ -86,6 +86,8 @@
         "memory_resource": "cpp",
         "hash_map": "cpp",
         "hash_set": "cpp",
-        "slist": "cpp"
+        "slist": "cpp",
+        "future": "cpp",
+        "regex": "cpp"
     }
 }
