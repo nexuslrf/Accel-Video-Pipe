@@ -132,7 +132,32 @@ int main()
     }
 
     /* ---- Show Res ---- */
-    // @TODO
+    int showHeight = modelHeight, showWidth = modelWidth;
+    while(!outDetections.empty())
+    {
+        // Re-scale boxes
+        auto outDets = outDetections.front();
+        for(auto& det_t:outDets)
+        {
+            auto det = det_t.accessor<float, 1>();
+            auto ymin = det[0] * showHeight;
+            auto xmin = det[1] * showWidth;
+            auto ymax = det[2] * showHeight;
+            auto xmax = det[3] * showWidth;
+            cv::rectangle(showFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-xmin), {0, 0, 255});
+
+            for(int i=0; i < numKeypoints; i++)
+            {
+                int offset = i * 2 + 4;
+                auto kp_x = det[offset  ] * showWidth;
+                auto kp_y = det[offset+1] * showHeight;
+                cv::circle(showFrame, cv::Point2f(kp_x, kp_y), 2, {0, 255, 0});
+            }
+        }
+        cv::imshow("PalmDetection", showFrame);
+        cv::waitKey();
+        outDetections.pop_front();
+    }
 }
 
 cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCrop)
@@ -201,6 +226,7 @@ vector<torch::Tensor> weightedNMS(const torch::Tensor &detections)
         }
         outDets.push_back(weightedDet);
     }
+    cout<<outDets<<endl;
     return outDets;
 }
 
