@@ -30,35 +30,40 @@ torch::Tensor computeIoU(const torch::Tensor &boxA, const torch::Tensor &boxB);
 
 int main()
 {
+    // file vars
     string rootDir = "/Users/liangruofan1/Program/CV_Models/palm_detector/";
     string anchorFile = rootDir + "anchors.bin";
     string palmModel = rootDir + "palm_detection.onnx";
     string testImg = rootDir + "pics/palm_test2.jpg";
 
-    fstream fin(anchorFile, ios::in | ios::binary);
+    // opencv vars
+    int rawHeight, rawWidth, cropWidthLowBnd, cropWidth, cropHeightLowBnd, cropHeight;
+    cv::Mat frame, rawFrame, showFrame, cropFrame, tmpFrame;
+    cv::VideoCapture cap;
+
+    // libtorch vars
     torch::NoGradGuard no_grad; // Disable back-grad buffering
     auto options = torch::TensorOptions().dtype(torch::kFloat32);
     auto anchors = torch::empty({numAnchors, 4}, options);
     auto detectionBoxes = torch::empty({batchSize, numAnchors, outDim});
-    // load anchor binary file
+    torch::Tensor inputRawTensor, inputTensor, rawBoxes, rawScores;
+    deque<torch::Tensor> rawDetections;
+    deque<vector<torch::Tensor>> outDetections;
+
+    /* ---- load anchor binary file ---- */
+    fstream fin(anchorFile, ios::in | ios::binary);
     fin.read((char *)anchors.data_ptr(), anchors.numel() * sizeof(float));
-    cout<<anchors.slice(0, 0, 6)<<endl;
-    auto tmp = torch::from_file(anchorFile, NULL, anchors.numel(), options).reshape({numAnchors, 4});
-    cout<<tmp.sizes()<<endl<<tmp.slice(0,0,6);
-    // load ONNX model
+    // cout<<anchors.slice(0, 0, 6)<<endl;
+    // auto tmp = torch::from_file(anchorFile, NULL, anchors.numel(), options).reshape({numAnchors, 4});
+    // cout<<tmp.sizes()<<endl<<tmp.slice(0,0,6);
+
+    /* ---- init ONNX rt ---- */
     Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "test");
     Ort::SessionOptions session_options;
     session_options.SetIntraOpNumThreads(1);
     session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
     Ort::Session session(env, palmModel.c_str(), session_options);
-    auto frame = cv::imread(testImg);
-    int rawHeight = frame.rows, rawWidth = frame.cols;
-    int cropWidthLowBnd, cropWidth, cropHeightLowBnd, cropHeight;
-
-    torch::Tensor inputRawTensor, inputTensor, rawBoxes, rawScores;
-    deque<torch::Tensor> rawDetections;
-    deque<vector<torch::Tensor>> outDetections;
-
+    
     Ort::AllocatorWithDefaultOptions allocator;
     std::vector<int64_t> input_node_dims = {batchSize, 3, modelHeight, modelWidth};
     size_t input_tensor_size = batchSize * 3 * modelHeight * modelWidth;
@@ -66,11 +71,20 @@ int main()
     std::vector<const char*> input_node_names = {"input"};
     std::vector<const char*> output_node_names = {"output1", "output2"};
     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+
+    /* ---- init opencv src file ---- */
+    cap.open(0);
+    // cap.set(cv::CAP_PROP_FPS, 20);
+    rawWidth = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+    rawHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+    // frame = cv::imread(testImg);
+    // rawHeight = frame.rows;
+    // rawWidth = frame.cols;
+
     // show pic
     // cv::imshow("PalmDetection", frame);
     // cv::waitKey();
-    // OpenCV pre-processing
-    cv::Mat showFrame, cropFrame, tmpFrame;
+
     // cropping long edge
     if(rawHeight > rawWidth)
     {
@@ -84,79 +98,93 @@ int main()
         cropHeightLowBnd = 0;
         cropHeight = cropWidth = rawHeight;
     }
-    showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
-    cv::cvtColor(showFrame, tmpFrame, cv::COLOR_BGR2RGB);
-    tmpFrame.convertTo(cropFrame, CV_32F);
-    cropFrame = cropFrame / 127.5 - 1.0;
-    // cout<<cropFrame({0,0,4,4})<<endl;
-    /* ---- NN Inference ---- */
-    inputRawTensor = torch::from_blob(cropFrame.data, {modelHeight, modelWidth, 3});
-    inputTensor = inputRawTensor.permute({2,0,1}).to(torch::kCPU, false, true);
-    Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, 
-                (float_t*)inputTensor.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
-    auto output_tensors = session.Run(Ort::RunOptions{nullptr}, 
-                input_node_names.data(), &input_tensor, 1, output_node_names.data(), 2);
-    cout<<output_tensors.size()<<"\n";
-    float* rawBoxesPtr = output_tensors[0].GetTensorMutableData<float>();
-    float* rawScoresPtr = output_tensors[1].GetTensorMutableData<float>();
-    // for(int i=0; i<10; i++)
-    //     cout<<rawBox[i]<<"  ";
-    // Decode Box
-    rawBoxes = torch::from_blob(rawBoxesPtr, {batchSize, numAnchors, outDim});
-    rawScores = torch::from_blob(rawScoresPtr, {batchSize, numAnchors});
-
-    /* ---- Tensor to Detection ---- */
-    decodeBoxes(rawBoxes, anchors, detectionBoxes);
-    // cout<<detectionBoxes.slice(1,0,1);
-    auto detectionScores = rawScores.clamp(-scoreClipThrs, scoreClipThrs).sigmoid();
-    auto mask = detectionScores >= minScoreThrs;
-    cout<<mask.sum();
-    // auto outBoxes = detectionBoxes.index(mask[0]);
-    cout<<mask[0].sizes();
-    
-    for(int i=0; i < batchSize; i++)
+    cout<<cropWidthLowBnd<<" "<<cropHeightLowBnd<<"\n";
+    /* ---- OpenCV pre-processing ---- */
+    while(cv::waitKey(1) < 0)
     {
-        auto boxes = detectionBoxes[i].index(mask[i]);
-        auto scores = detectionScores[i].index(mask[i]).unsqueeze(-1);
-        cout<<boxes.sizes()<<"  "<<scores.sizes()<<endl;
-        rawDetections.push_back(torch::cat({boxes, scores}, -1));
-
-    }
-
-    /* ---- NMS ---- */
-    while(!rawDetections.empty())
-    {
-        auto outDet = weightedNMS(rawDetections.front());
-        outDetections.push_back(outDet);
-        rawDetections.pop_front();
-    }
-
-    /* ---- Show Res ---- */
-    int showHeight = modelHeight, showWidth = modelWidth;
-    while(!outDetections.empty())
-    {
-        // Re-scale boxes
-        auto outDets = outDetections.front();
-        for(auto& det_t:outDets)
+        cap >> rawFrame;
+        if (rawFrame.empty())
         {
-            auto det = det_t.accessor<float, 1>();
-            auto ymin = det[0] * showHeight;
-            auto xmin = det[1] * showWidth;
-            auto ymax = det[2] * showHeight;
-            auto xmax = det[3] * showWidth;
-            cv::rectangle(showFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-xmin), {0, 0, 255});
+            cv::waitKey();
+            break;
+        } 
+        // frame = rawFrame;
+        cv::flip(rawFrame, frame, +1);
+        showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
+        cv::cvtColor(showFrame, tmpFrame, cv::COLOR_BGR2RGB);
+        tmpFrame.convertTo(cropFrame, CV_32F);
+        cropFrame = cropFrame / 127.5 - 1.0;
+        // cout<<cropFrame({0,0,4,4})<<endl;
 
-            for(int i=0; i < numKeypoints; i++)
-            {
-                int offset = i * 2 + 4;
-                auto kp_x = det[offset  ] * showWidth;
-                auto kp_y = det[offset+1] * showHeight;
-                cv::circle(showFrame, cv::Point2f(kp_x, kp_y), 2, {0, 255, 0});
-            }
+        /* ---- NN Inference ---- */
+        inputRawTensor = torch::from_blob(cropFrame.data, {modelHeight, modelWidth, 3});
+        inputTensor = inputRawTensor.permute({2,0,1}).to(torch::kCPU, false, true);
+        Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, 
+                    (float_t*)inputTensor.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
+        auto output_tensors = session.Run(Ort::RunOptions{nullptr}, 
+                    input_node_names.data(), &input_tensor, 1, output_node_names.data(), 2);
+        // cout<<output_tensors.size()<<"\n";
+        float* rawBoxesPtr = output_tensors[0].GetTensorMutableData<float>();
+        float* rawScoresPtr = output_tensors[1].GetTensorMutableData<float>();
+        // for(int i=0; i<10; i++)
+        //     cout<<rawBox[i]<<"  ";
+        // Decode Box
+        rawBoxes = torch::from_blob(rawBoxesPtr, {batchSize, numAnchors, outDim});
+        rawScores = torch::from_blob(rawScoresPtr, {batchSize, numAnchors});
+
+        /* ---- Tensor to Detection ---- */
+        decodeBoxes(rawBoxes, anchors, detectionBoxes);
+        // cout<<detectionBoxes.slice(1,0,1);
+        auto detectionScores = rawScores.clamp(-scoreClipThrs, scoreClipThrs).sigmoid();
+        auto mask = detectionScores >= minScoreThrs;
+        // cout<<mask.sum();
+        // auto outBoxes = detectionBoxes.index(mask[0]);
+        // cout<<mask[0].sizes();
+        
+        for(int i=0; i < batchSize; i++)
+        {
+            auto boxes = detectionBoxes[i].index(mask[i]);
+            auto scores = detectionScores[i].index(mask[i]).unsqueeze(-1);
+            // cout<<boxes.sizes()<<"  "<<scores.sizes()<<endl;
+            rawDetections.push_back(torch::cat({boxes, scores}, -1));
+
         }
-        cv::imshow("PalmDetection", showFrame);
-        cv::waitKey();
-        outDetections.pop_front();
+
+        /* ---- NMS ---- */
+        while(!rawDetections.empty())
+        {
+            auto outDet = weightedNMS(rawDetections.front());
+            outDetections.push_back(outDet);
+            rawDetections.pop_front();
+        }
+
+        /* ---- Show Res ---- */
+        int showHeight = modelHeight, showWidth = modelWidth;
+        while(!outDetections.empty())
+        {
+            // Re-scale boxes
+            auto outDets = outDetections.front();
+            for(auto& det_t:outDets)
+            {
+                auto det = det_t.accessor<float, 1>();
+                auto ymin = det[0] * showHeight;
+                auto xmin = det[1] * showWidth;
+                auto ymax = det[2] * showHeight;
+                auto xmax = det[3] * showWidth;
+                cv::rectangle(showFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-xmin), {0, 0, 255});
+
+                for(int i=0; i < numKeypoints; i++)
+                {
+                    int offset = i * 2 + 4;
+                    auto kp_x = det[offset  ] * showWidth;
+                    auto kp_y = det[offset+1] * showHeight;
+                    cv::circle(showFrame, cv::Point2f(kp_x, kp_y), 2, {0, 255, 0});
+                }
+            }
+            cv::imshow("PalmDetection", showFrame);
+            // cv::waitKey();
+            outDetections.pop_front();
+        }
     }
 }
 
@@ -202,17 +230,17 @@ vector<torch::Tensor> weightedNMS(const torch::Tensor &detections)
     if(detections.size(0) == 0)
         return outDets;
     auto remaining = detections.slice(1,outDim, outDim+1).argsort(0, true).squeeze(-1);
-    cout<<remaining.sizes()<<"  "<<remaining[0];
-    cout<<detections[remaining[0]].sizes()<<"\n";
+    // cout<<remaining.sizes()<<"  "<<remaining[0];
+    // cout<<detections[remaining[0]].sizes()<<"\n";
     // torch::Tensor IoUs;
     while (remaining.size(0)>0)
     {
         auto weightedDet = detections[remaining[0]].to(torch::kCPU, false, true);
         auto firstBox = detections[remaining[0]].slice(0,0,4).unsqueeze(0);
         auto otherBoxes = detections.index(remaining).slice(1,0,4);
-        cout<<firstBox.sizes()<<"    "<<otherBoxes.sizes();
+        // cout<<firstBox.sizes()<<"    "<<otherBoxes.sizes();
         auto IoUs = computeIoU(firstBox, otherBoxes);
-        cout<<IoUs.sizes();
+        // cout<<IoUs.sizes();
         auto overlapping = remaining.index(IoUs > minSuppressionThrs);
         remaining = remaining.index(IoUs <= minSuppressionThrs);
 
@@ -226,7 +254,7 @@ vector<torch::Tensor> weightedNMS(const torch::Tensor &detections)
         }
         outDets.push_back(weightedDet);
     }
-    cout<<outDets<<endl;
+    // cout<<outDets<<endl;
     return outDets;
 }
 
@@ -245,7 +273,7 @@ torch::Tensor computeIoU(const torch::Tensor &boxA, const torch::Tensor &boxB)
                   (boxA.slice(1,3,4)-boxA.slice(1,1,2))).expand_as(interX);
     auto areaB = ((boxB.slice(1,2,3)-boxB.slice(1,0,1)) * 
                   (boxB.slice(1,3,4)-boxB.slice(1,1,2))).squeeze(-1).unsqueeze(0).expand_as(interX);
-    cout<<areaA.sizes()<<"  "<<areaB.sizes()<<endl;
+    // cout<<areaA.sizes()<<"  "<<areaB.sizes()<<endl;
     auto unions = areaA + areaB - interX;
     return (interX / unions).squeeze(0);
 }
