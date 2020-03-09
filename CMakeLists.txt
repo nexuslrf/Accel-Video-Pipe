@@ -1,53 +1,37 @@
-cmake_minimum_required(VERSION 3.0)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-project( video_analysis )
+cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+project(main)
 
-set(CMAKE_BUILD_TYPE "Release")
+if (WIN32)
+ string(APPEND CMAKE_CXX_FLAGS " /W4")
+else()
+ string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra")
+ string(APPEND CMAKE_C_FLAGS " -Wall -Wextra")
+endif()
 
-set(OpenCV_DIR "C:\\Program Files (x86)\\IntelSWTools\\openvino\\opencv\\cmake")
-set(CMAKE_PREFIX_PATH "C:\\Users\\Ruofan\\Programming\\Libraries\\libtorch")
-set(InferenceEngine_DIR "C:\\Program Files (x86)\\IntelSWTools\\openvino\\deployment_tools\\inference_engine\\share")
-
-set_property (DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS _CRT_SECURE_NO_WARNINGS)
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_SCL_SECURE_NO_WARNINGS -DNOMINMAX")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc") #no asynchronous structured exception handling
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LARGEADDRESSAWARE")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4251 /wd4275 /wd4267") #disable some warnings
-
-
-
-find_package(InferenceEngine REQUIRED)
-find_package(OpenCV REQUIRED)
+set(InferenceEngine_DIR "E:\\intelswtool\\openvino_2020.1.033\\deployment_tools\\inference_engine\\share")
+set(CMAKE_PREFIX_PATH "E:\\workspace\\daka\\libtorch-win-shared-with-deps-1.4.0\\libtorch")
 find_package(Torch REQUIRED)
-#include_directories("C:\\Users\\Ruofan\\Programming\\Libraries\\libtorch\\include")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+set(OpenCV_DIR "E:\\intelswtool\\openvino_2020.1.033\\opencv\\cmake")
+find_package(OpenCV REQUIRED)
 
-add_executable( video-analysis video-analysis.cpp )
-target_link_libraries( video-analysis ${OpenCV_LIBS})
-target_link_libraries( video-analysis ${TORCH_LIBRARIES})
+add_executable(main video-analysis.cpp)
+target_link_libraries(main "${TORCH_LIBRARIES}")
+target_link_libraries(main  "${OpenCV_LIBS}")
+set_property(TARGET main PROPERTY CXX_STANDARD 14)
 
-message(STATUS "Pytorch status:")
-message(STATUS "    libraries: ${TORCH_LIBRARIES}")
+set(ONNXRUNTIME_ROOTDIR "E:\\workspace\\daka\\onnxruntime_RelWithDebInfo")
+include_directories("${ONNXRUNTIME_ROOTDIR}/include" "${ONNXRUNTIME_ROOTDIR}/include/onnxruntime/core/session")
+link_directories("${ONNXRUNTIME_ROOTDIR}/lib")
 
-message(STATUS "OpenCV library status:")
-message(STATUS "    version: ${OpenCV_VERSION}")
-message(STATUS "    libraries: ${OpenCV_LIBS}")
-message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
-
-message(STATUS "OpenVINO status")
-message(STATUS "    version: ${InferenceEngine_VERSION}")
-message(STATUS "    libraries: ${InferenceEngine_LIBRARIES}")
-
-#add_definitions(-D_DEBUG)
-#add_definitions(-D_FOO_TEST)
-add_definitions(-D_TIMING)
-
-set(IE_MAIN_SAMPLES_DIR ${CMAKE_CURRENT_BINARY_DIR})
-add_executable( speed-bench speed-bench.cpp )
-target_link_libraries( speed-bench ${OpenCV_LIBS} )
-target_link_libraries( speed-bench ${TORCH_LIBRARIES})
-target_link_libraries( speed-bench ${InferenceEngine_LIBRARIES})
-#target_link_libraries( speed-bench "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/lib/libonnxruntime.1.1.2.dylib")
-set_target_properties( speed-bench PROPERTIES COMPILE_PDB_NAME speed-bench)
-
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ldl -pthread -fPIC -ltvm_runtime")
+# The following code block is suggested to be used on Windows.
+# According to https://github.com/pytorch/pytorch/issues/25457,
+# the DLLs need to be copied to avoid memory errors.
+if (MSVC)
+  file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+  add_custom_command(TARGET main
+                     POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                     ${TORCH_DLLS}
+                     $<TARGET_FILE_DIR:main>)
+endif (MSVC)
