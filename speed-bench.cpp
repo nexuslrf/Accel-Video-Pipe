@@ -96,7 +96,7 @@ int main()
             infer_request.Infer();
             InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
             auto stop2 = chrono::high_resolution_clock::now(); 
-            cout<<"OpenVINO Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+            cout<<"OpenVINO CPU Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
         }
     }
 
@@ -198,7 +198,33 @@ int main()
             auto stop2 = chrono::high_resolution_clock::now(); 
             cout<<"ONNX Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
         }
-
-
+    }
+    /* OpenVINO VPU*/
+    {
+        string model_xml = model_name+"_FP16.xml";
+        string model_bin = model_name+"_FP16.bin";
+        InferenceEngine::Core ie;
+        auto network = ie.ReadNetwork(model_xml, model_bin);
+        network.setBatchSize(batchSize);
+        auto input_info = network.getInputsInfo().begin()->second;
+        string input_name = network.getInputsInfo().begin()->first;
+        auto output_info = network.getOutputsInfo().begin()->second;
+        string output_name = network.getOutputsInfo().begin()->first;
+        auto executable_network = ie.LoadNetwork(network, "MYRIAD"); // Unknown problems for GPU version
+        auto infer_request = executable_network.CreateInferRequest();
+        auto tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32,
+                                        {(uint)batchSize, 3, (uint)modelHeight, (uint)modelWidth},
+                                        InferenceEngine::Layout::NCHW);
+        for(int i=0; i<numLoop; i++)
+        {                                  
+            auto stop1 = chrono::high_resolution_clock::now();                                
+            auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
+            InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t*)inData.data_ptr());
+            infer_request.SetBlob(input_name, inBlob);
+            infer_request.Infer();
+            InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+            auto stop2 = chrono::high_resolution_clock::now(); 
+            cout<<"OpenVINO VPU Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+        }
     }
 }

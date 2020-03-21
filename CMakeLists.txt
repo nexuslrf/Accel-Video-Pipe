@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_PREFIX_PATH "/Users/liangruofan1/Program/CNN_Deployment/libtorch")
 project( video-analysis )
 
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
 
 find_package( InferenceEngine REQUIRED)
 find_package( OpenCV 4.2 REQUIRED )
@@ -36,6 +36,11 @@ add_executable( palm-detection palm-detection.cpp)
 target_link_libraries( palm-detection ${OpenCV_LIBS} )
 target_link_libraries( palm-detection "${TORCH_LIBRARIES}")
 target_link_libraries( palm-detection "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/lib/libonnxruntime.1.1.2.dylib")
+
+add_executable( hand-keypoint hand-keypoint.cpp)
+target_link_libraries( hand-keypoint ${OpenCV_LIBS} )
+target_link_libraries( hand-keypoint "${TORCH_LIBRARIES}")
+target_link_libraries( hand-keypoint "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/lib/libonnxruntime.1.1.2.dylib")
 
 message(STATUS "Pytorch status:")
 message(STATUS "    libraries: ${TORCH_LIBRARIES}")

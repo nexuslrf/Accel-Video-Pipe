@@ -20,11 +20,12 @@ using namespace std;
 int modelWidth = 256, modelHeight = 256;
 int numAnchors = 2944, outDim = 18, batchSize = 1;
 int numKeypoints = 7;
-float scoreClipThrs = 100.0, minScoreThrs = 0.75, minSuppressionThrs=0.3;
+float scoreClipThrs = 100.0, minScoreThrs = 0.80, minSuppressionThrs=0.3;
 
 cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCrop);
 inline void matToTensor(cv::Mat const& src, torch::Tensor& out);
 void decodeBoxes(const torch::Tensor &rawBoxes, const torch::Tensor &anchors, torch::Tensor &boxes);
+vector<torch::Tensor> NMS(const torch::Tensor &detections);
 vector<torch::Tensor> weightedNMS(const torch::Tensor &detections);
 torch::Tensor computeIoU(const torch::Tensor &boxA, const torch::Tensor &boxB);
 
@@ -34,13 +35,13 @@ int main()
     string rootDir = "/Users/liangruofan1/Program/CV_Models/palm_detector/";
     string anchorFile = rootDir + "anchors.bin";
     string palmModel = rootDir + "palm_detection.onnx";
-    string testImg = rootDir + "pics/palm_test2.jpg";
+    string testImg = rootDir + "pics/LRF.jpeg";
 
     // opencv vars
     int rawHeight, rawWidth, cropWidthLowBnd, cropWidth, cropHeightLowBnd, cropHeight;
     cv::Mat frame, rawFrame, showFrame, cropFrame, tmpFrame;
     cv::VideoCapture cap;
-
+    bool videoMode = true;
     // libtorch vars
     torch::NoGradGuard no_grad; // Disable back-grad buffering
     auto options = torch::TensorOptions().dtype(torch::kFloat32);
@@ -73,17 +74,22 @@ int main()
     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 
     /* ---- init opencv src file ---- */
-    cap.open(0);
-    // cap.set(cv::CAP_PROP_FPS, 20);
-    rawWidth = cap.get(cv::CAP_PROP_FRAME_WIDTH);
-    rawHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-    // frame = cv::imread(testImg);
-    // rawHeight = frame.rows;
-    // rawWidth = frame.cols;
-
-    // show pic
-    // cv::imshow("PalmDetection", frame);
-    // cv::waitKey();
+    if(videoMode)
+    {
+        cap.open(0);
+        rawWidth = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+        rawHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+        // cap.set(cv::CAP_PROP_FPS, 20);
+    }
+    else
+    {
+        rawFrame = cv::imread(testImg);
+        rawHeight = rawFrame.rows;
+        rawWidth = rawFrame.cols;
+        // show pic
+        // cv::imshow("PalmDetection", rawFrame);
+        // cv::waitKey();
+    }
 
     // cropping long edge
     if(rawHeight > rawWidth)
@@ -102,7 +108,8 @@ int main()
     /* ---- OpenCV pre-processing ---- */
     while(cv::waitKey(1) < 0)
     {
-        cap >> rawFrame;
+        if(videoMode)
+            cap >> rawFrame;
         if (rawFrame.empty())
         {
             cv::waitKey();
@@ -150,6 +157,32 @@ int main()
 
         }
 
+        /* ---- Debug ---- */
+        // cv::Mat debugFrame;
+        // // Re-scale boxes
+        // auto rawDets = rawDetections.front();
+        // cout<<rawDets.sizes()<<endl;
+        // auto det = rawDets.accessor<float, 2>();
+        // for(int i=0; i<rawDets.size(0); i++)
+        // {
+        //     showFrame.copyTo(debugFrame);
+        //     auto ymin = det[i][0] * modelHeight;
+        //     auto xmin = det[i][1] * modelWidth;
+        //     auto ymax = det[i][2] * modelHeight;
+        //     auto xmax = det[i][3] * modelWidth;
+        //     cv::rectangle(debugFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-ymin), {0, 0, 255});
+
+        //     for(int j=0; j < numKeypoints; j++)
+        //     {
+        //         int offset = j * 2 + 4;
+        //         auto kp_x = det[i][offset  ] * modelWidth;
+        //         auto kp_y = det[i][offset+1] * modelHeight;
+        //         cv::circle(debugFrame, cv::Point2f(kp_x, kp_y), 2, {0, 255, 0});
+        //     }
+        //     cv::imshow("PalmDetection", debugFrame);
+        //     cv::waitKey();
+        // }
+
         /* ---- NMS ---- */
         while(!rawDetections.empty())
         {
@@ -171,7 +204,7 @@ int main()
                 auto xmin = det[1] * showWidth;
                 auto ymax = det[2] * showHeight;
                 auto xmax = det[3] * showWidth;
-                cv::rectangle(showFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-xmin), {0, 0, 255});
+                cv::rectangle(showFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-ymin), {0, 0, 255});
 
                 for(int i=0; i < numKeypoints; i++)
                 {
@@ -182,7 +215,8 @@ int main()
                 }
             }
             cv::imshow("PalmDetection", showFrame);
-            // cv::waitKey();
+            if(!videoMode)
+                cv::waitKey();
             outDetections.pop_front();
         }
     }
@@ -253,6 +287,32 @@ vector<torch::Tensor> weightedNMS(const torch::Tensor &detections)
             weightedDet[outDim] = totalScore / overlapping.size(0);
         }
         outDets.push_back(weightedDet);
+    }
+    // cout<<outDets<<endl;
+    return outDets;
+}
+
+vector<torch::Tensor> NMS(const torch::Tensor &detections)
+{
+    vector<torch::Tensor> outDets;
+    if(detections.size(0) == 0)
+        return outDets;
+    auto remaining = detections.slice(1,outDim, outDim+1).argsort(0, true).squeeze(-1);
+    // cout<<remaining.sizes()<<"  "<<remaining[0];
+    // cout<<detections[remaining[0]].sizes()<<"\n";
+    // torch::Tensor IoUs;
+    while (remaining.size(0)>0)
+    {
+        auto Det = detections[remaining[0]].to(torch::kCPU, false, true);
+        auto firstBox = detections[remaining[0]].slice(0,0,4).unsqueeze(0);
+        auto otherBoxes = detections.index(remaining).slice(1,0,4);
+        // cout<<firstBox.sizes()<<"    "<<otherBoxes.sizes();
+        auto IoUs = computeIoU(firstBox, otherBoxes);
+        // cout<<IoUs.sizes();
+        auto overlapping = remaining.index(IoUs > minSuppressionThrs);
+        remaining = remaining.index(IoUs <= minSuppressionThrs);
+
+        outDets.push_back(Det);
     }
     // cout<<outDets<<endl;
     return outDets;
