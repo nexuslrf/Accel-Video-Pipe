@@ -18,37 +18,44 @@
 using namespace std;
 
 int modelWidth = 256, modelHeight = 256;
-int numAnchors = 2944, outDim = 18, batchSize = 1;
-int numKeypoints = 7;
+int numAnchors = 2944, outDim = 18, batchSizePalm = 1;
+int numKeypointsPalm = 7, numKeypointsHand = 21;
 float scoreClipThrs = 100.0, minScoreThrs = 0.80, minSuppressionThrs=0.3;
 float shift_y = 0.5, shift_x = 0, box_scale = 2.6;
 
+bool videoMode = false, showPalm = true;
+
 cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCrop);
 inline void matToTensor(cv::Mat const& src, torch::Tensor& out);
-void decodeBoxes(const torch::Tensor &rawBoxes, const torch::Tensor &anchors, torch::Tensor &boxes);
+void decodeBoxes(const torch::Tensor &rawBoxesP, const torch::Tensor &anchors, torch::Tensor &boxes);
 vector<torch::Tensor> NMS(const torch::Tensor &detections);
 vector<torch::Tensor> weightedNMS(const torch::Tensor &detections);
 torch::Tensor computeIoU(const torch::Tensor &boxA, const torch::Tensor &boxB);
+cv::Mat_<float> computePointAffine(cv::Mat_<float> &pointsMat, cv::Mat_<float> &affineMat, bool inverse);
 
 int main()
 {
     // file vars
-    string rootDir = "/Users/liangruofan1/Program/CV_Models/palm_detector/";
-    string anchorFile = rootDir + "anchors.bin";
-    string palmModel = rootDir + "palm_detection.onnx";
-    string testImg = rootDir + "pics/LRF.jpeg";
+    string rootDir = "/Users/liangruofan1/Program/CV_Models/";
+    string anchorFile = rootDir + "palm_detector/anchors.bin";
+    string palmModel = rootDir + "palm_detector/palm_detection.onnx";
+    string handModel = rootDir + "hand_keypoint_3d/blaze_hand.onnx";
+    string testImg = rootDir + "palm_detector/pics/LRF.jpg";
 
     // opencv vars
     int rawHeight, rawWidth, cropWidthLowBnd, cropWidth, cropHeightLowBnd, cropHeight;
-    cv::Mat frame, rawFrame, showFrame, cropFrame, tmpFrame;
+    cv::Mat frame, rawFrame, showFrame, cropFrame, inFrame, tmpFrame;
     cv::VideoCapture cap;
-    bool videoMode = false;
+    vector<cv::Mat> cropHands;
+    vector<cv::Mat_<float>> affineMats;
+    vector<cv::Point2f> handCenters;
+
     // libtorch vars
     torch::NoGradGuard no_grad; // Disable back-grad buffering
     auto options = torch::TensorOptions().dtype(torch::kFloat32);
     auto anchors = torch::empty({numAnchors, 4}, options);
-    auto detectionBoxes = torch::empty({batchSize, numAnchors, outDim});
-    torch::Tensor inputRawTensor, inputTensor, rawBoxes, rawScores;
+    auto detectionBoxes = torch::empty({batchSizePalm, numAnchors, outDim});
+    torch::Tensor inputRawTensor, inputTensor, rawBoxesP, rawScoresP, rawScoresH, rawKeyptsH;
     deque<torch::Tensor> rawDetections;
     deque<vector<torch::Tensor>> outDetections;
 
@@ -64,12 +71,13 @@ int main()
     Ort::SessionOptions session_options;
     session_options.SetIntraOpNumThreads(1);
     session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-    Ort::Session session(env, palmModel.c_str(), session_options);
+    Ort::Session sessionPalm(env, palmModel.c_str(), session_options);
+    Ort::Session sessionHand(env, handModel.c_str(), session_options);
     
     Ort::AllocatorWithDefaultOptions allocator;
-    std::vector<int64_t> input_node_dims = {batchSize, 3, modelHeight, modelWidth};
-    size_t input_tensor_size = batchSize * 3 * modelHeight * modelWidth;
-    std::vector<float> input_tensor_values(input_tensor_size);
+    std::vector<int64_t> palm_input_node_dims = {batchSizePalm, 3, modelHeight, modelWidth};
+    size_t palm_input_tensor_size = batchSizePalm * 3 * modelHeight * modelWidth;
+    // std::vector<float> input_tensor_values(palm_input_tensor_size);
     std::vector<const char*> input_node_names = {"input"};
     std::vector<const char*> output_node_names = {"output1", "output2"};
     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
@@ -118,38 +126,41 @@ int main()
         } 
         // frame = rawFrame;
         cv::flip(rawFrame, frame, +1);
-        showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
-        cv::cvtColor(showFrame, tmpFrame, cv::COLOR_BGR2RGB);
-        tmpFrame.convertTo(cropFrame, CV_32F);
-        cropFrame = cropFrame / 127.5 - 1.0;
-        // cout<<cropFrame({0,0,4,4})<<endl;
+        cv::Rect ROI(cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
+        cropFrame = frame(ROI);
+        resize(frame(ROI), inFrame, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
+        // showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
+        cv::cvtColor(inFrame, inFrame, cv::COLOR_BGR2RGB);
+        inFrame.convertTo(inFrame, CV_32F);
+        inFrame = inFrame / 127.5 - 1.0;
+        // cout<<inFrame({0,0,4,4})<<endl;
 
         /* ---- NN Inference ---- */
-        inputRawTensor = torch::from_blob(cropFrame.data, {modelHeight, modelWidth, 3});
+        inputRawTensor = torch::from_blob(inFrame.data, {modelHeight, modelWidth, 3});
         inputTensor = inputRawTensor.permute({2,0,1}).to(torch::kCPU, false, true);
         Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, 
-                    (float_t*)inputTensor.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
-        auto output_tensors = session.Run(Ort::RunOptions{nullptr}, 
+                    (float_t*)inputTensor.data_ptr(), palm_input_tensor_size, palm_input_node_dims.data(), 4);
+        auto output_tensors = sessionPalm.Run(Ort::RunOptions{nullptr}, 
                     input_node_names.data(), &input_tensor, 1, output_node_names.data(), 2);
         // cout<<output_tensors.size()<<"\n";
-        float* rawBoxesPtr = output_tensors[0].GetTensorMutableData<float>();
-        float* rawScoresPtr = output_tensors[1].GetTensorMutableData<float>();
+        float* rawBoxesPPtr = output_tensors[0].GetTensorMutableData<float>();
+        float* rawScoresPPtr = output_tensors[1].GetTensorMutableData<float>();
         // for(int i=0; i<10; i++)
         //     cout<<rawBox[i]<<"  ";
         // Decode Box
-        rawBoxes = torch::from_blob(rawBoxesPtr, {batchSize, numAnchors, outDim});
-        rawScores = torch::from_blob(rawScoresPtr, {batchSize, numAnchors});
+        rawBoxesP = torch::from_blob(rawBoxesPPtr, {batchSizePalm, numAnchors, outDim});
+        rawScoresP = torch::from_blob(rawScoresPPtr, {batchSizePalm, numAnchors});
 
         /* ---- Tensor to Detection ---- */
-        decodeBoxes(rawBoxes, anchors, detectionBoxes);
+        decodeBoxes(rawBoxesP, anchors, detectionBoxes);
         // cout<<detectionBoxes.slice(1,0,1);
-        auto detectionScores = rawScores.clamp(-scoreClipThrs, scoreClipThrs).sigmoid();
+        auto detectionScores = rawScoresP.clamp(-scoreClipThrs, scoreClipThrs).sigmoid();
         auto mask = detectionScores >= minScoreThrs;
         // cout<<mask.sum();
         // auto outBoxes = detectionBoxes.index(mask[0]);
         // cout<<mask[0].sizes();
         
-        for(int i=0; i < batchSize; i++)
+        for(int i=0; i < batchSizePalm; i++)
         {
             auto boxes = detectionBoxes[i].index(mask[i]);
             auto scores = detectionScores[i].index(mask[i]).unsqueeze(-1);
@@ -157,32 +168,6 @@ int main()
             rawDetections.push_back(torch::cat({boxes, scores}, -1));
 
         }
-
-        /* ---- Debug ---- */
-        // cv::Mat debugFrame;
-        // // Re-scale boxes
-        // auto rawDets = rawDetections.front();
-        // cout<<rawDets.sizes()<<endl;
-        // auto det = rawDets.accessor<float, 2>();
-        // for(int i=0; i<rawDets.size(0); i++)
-        // {
-        //     showFrame.copyTo(debugFrame);
-        //     auto ymin = det[i][0] * modelHeight;
-        //     auto xmin = det[i][1] * modelWidth;
-        //     auto ymax = det[i][2] * modelHeight;
-        //     auto xmax = det[i][3] * modelWidth;
-        //     cv::rectangle(debugFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-ymin), {0, 0, 255});
-
-        //     for(int j=0; j < numKeypoints; j++)
-        //     {
-        //         int offset = j * 2 + 4;
-        //         auto kp_x = det[i][offset  ] * modelWidth;
-        //         auto kp_y = det[i][offset+1] * modelHeight;
-        //         cv::circle(debugFrame, cv::Point2f(kp_x, kp_y), 2, {0, 255, 0});
-        //     }
-        //     cv::imshow("PalmDetection", debugFrame);
-        //     cv::waitKey();
-        // }
 
         /* ---- NMS ---- */
         while(!rawDetections.empty())
@@ -193,10 +178,12 @@ int main()
         }
 
         /* ---- Show Res ---- */
-        int showHeight = modelHeight, showWidth = modelWidth;
+        int showHeight = cropHeight, showWidth = cropWidth;
         while(!outDetections.empty())
         {
             // Re-scale boxes
+            if(showPalm)
+                cropFrame.copyTo(showFrame);
             auto outDets = outDetections.front();
             for(auto& det_t:outDets)
             {
@@ -207,59 +194,126 @@ int main()
                 auto xmax = det[3] * showWidth;
                 auto xscale = xmax - xmin, yscale = ymax - ymin;
                 auto xrescale = xscale*box_scale, yrescale = yscale*box_scale;
-                cv::rectangle(showFrame, cv::Rect(xmin, ymin, xscale, yscale), {0, 0, 255});
-
-                // Palm's keypoints
-                for(int i=0; i < numKeypoints; i++)
-                {
-                    int offset = i * 2 + 4;
-                    auto kp_x = det[offset  ] * showWidth;
-                    auto kp_y = det[offset+1] * showHeight;
-                    cv::circle(showFrame, cv::Point2f(kp_x, kp_y), 2, {0, 255, 0});
-                }
-                cv::line(showFrame, cv::Point2f(det[4]*showWidth,det[5]*showHeight), 
-                                    cv::Point2f(det[8]*showWidth,det[9]*showHeight), {255,0,0}, 1);
-                // Compute rotatation
-                // Line between point 0 and point 2
+                
+                /* ---- Compute rotatation ---- */
                 auto angleRad = atan2(det[4]-det[8], det[5]-det[9]);
                 auto angleDeg = angleRad*180/M_PI;
                 // Movement
                 // shift_y > 0 : move 0 --> 2; shift_x > 0 : move right hand side of 0->2
                 auto x_center = xmin + xscale*(0.5-shift_y*sin(angleRad)+shift_x*cos(angleRad)); 
                 auto y_center = ymin + yscale*(0.5-shift_y*cos(angleRad)-shift_x*sin(angleRad));
-                cv::rectangle(showFrame, cv::Rect(x_center-0.5*xscale, y_center-0.5*yscale, xscale, yscale), {0, 255, 255});
-                auto rRect = cv::RotatedRect(cv::Point2f(x_center, y_center), cv::Size2f(xrescale, yrescale), 90 - angleDeg);
-                cv::Point2f vertices[4];
-                rRect.points(vertices);
-                for (int i = 0; i < 4; i++)
-                    cv::line(showFrame, vertices[i], vertices[(i+1)%4], {0,255,0}, 1);
+
+                // Show Palm's Detection
+                if(showPalm)
+                {
+                    cv::rectangle(showFrame, cv::Rect(xmin, ymin, xscale, yscale), {0, 0, 255});
+                    for(int i=0; i < numKeypointsPalm; i++)
+                    {
+                        int offset = i * 2 + 4;
+                        auto kp_x = det[offset  ] * showWidth;
+                        auto kp_y = det[offset+1] * showHeight;
+                        cv::circle(showFrame, cv::Point2f(kp_x, kp_y), 2, {0, 255, 0});
+                    }
+                    // Line between point 0 and point 2
+                    cv::line(showFrame, cv::Point2f(det[4]*showWidth,det[5]*showHeight), 
+                                    cv::Point2f(det[8]*showWidth,det[9]*showHeight), {255,255,255}, 1);
+                    cv::rectangle(showFrame, cv::Rect(x_center-0.5*xscale, y_center-0.5*yscale, xscale, yscale), {0, 255, 255});
+                    auto rRect = cv::RotatedRect(cv::Point2f(x_center, y_center), cv::Size2f(xrescale, yrescale), 90 - angleDeg);
+                    cv::Point2f vertices[4];
+                    rRect.points(vertices);
+                    for (int i = 0; i < 4; i++)
+                        cv::line(showFrame, vertices[i], vertices[(i+1)%4], {0,255,0}, 1);
+                }
+                /* ---- Get cropped Hands ---- */
+                cv::Mat_<float> affineMat = cv::getRotationMatrix2D(cv::Point2f(showWidth, showHeight)/2, -angleDeg, 1);
+                auto bbox = cv::RotatedRect(cv::Point2f(), cropFrame.size(), -angleDeg).boundingRect2f();
+                affineMat.at<float>(0,2) += bbox.width/2.0 - cropFrame.cols/2.0;
+                affineMat.at<float>(1,2) += bbox.height/2.0 - cropFrame.rows/2.0;
+                cv::Mat rotFrame;
+                cv::warpAffine(cropFrame, rotFrame, affineMat, bbox.size());                    
+                // cv::imshow("Rotated", rotFrame);
+                // cv::waitKey();
+                // Cropping & Point Affine Transformation
+                cv::Mat_<float> pointMat(2,1);
+                pointMat << x_center, y_center;
+                // cout<<pointMat<<endl;
+                cv::Mat_<float> rotPtMat = computePointAffine(pointMat, affineMat, false);
+                // cout<<computePointAffine(rotPtMat, affineMat, true)<<endl;
+                cv::Point2f rotCenter(rotPtMat(0), rotPtMat(1));
+                // Out of range cases
+                float xrescale_2 = xrescale/2, yrescale_2 = yrescale/2;
+                float xDwHalf = min(rotCenter.x, xrescale_2), yDwHalf = min(rotCenter.y, yrescale_2);
+                float xUpHalf = rotCenter.x+xrescale_2 > rotFrame.cols?rotFrame.cols-rotCenter.x:xrescale_2;
+                float yUpHalf = rotCenter.y+yrescale_2 > rotFrame.rows?rotFrame.rows-rotCenter.y:yrescale_2;
+                auto cropHand = rotFrame(cv::Rect(rotCenter.x-xDwHalf, rotCenter.y-yDwHalf, xDwHalf+xUpHalf, yDwHalf+yUpHalf));
+                cv::copyMakeBorder(cropHand, cropHand, yrescale_2-yDwHalf, yrescale_2-yUpHalf, 
+                                    xrescale_2-xDwHalf, xrescale_2-xUpHalf, cv::BORDER_CONSTANT);
+                cropHands.push_back(cropHand);
+                affineMats.push_back(affineMat);
+                handCenters.push_back(rotCenter);
+            }
+            int batchSizeHand = cropHands.size();
+            std::vector<int64_t> hand_input_node_dims = {batchSizeHand, 3, modelHeight, modelWidth};
+            size_t hand_input_tensor_size = batchSizeHand * 3 * modelHeight * modelWidth;
+            auto handsTensor = torch::empty({batchSizeHand, modelWidth, modelHeight, 3});
+            int idx = 0;
+            for(auto& cropHand: cropHands)
+            {
+                resize(cropHand, tmpFrame, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
+                // showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
+                cv::cvtColor(tmpFrame, tmpFrame, cv::COLOR_BGR2RGB);
+                tmpFrame.convertTo(tmpFrame, CV_32F);
+                tmpFrame = tmpFrame / 127.5 - 1.0;
+                auto tmpHand = torch::from_blob(tmpFrame.data, {1, modelHeight, modelWidth, 3});
+                handsTensor.slice(0, idx, idx+1) = tmpHand;
+                idx++;
+            }
+            /* ---- Hand NN Inference ---- */
+            inputTensor = handsTensor.permute({0,3,1,2}).to(torch::kCPU, false, true);
+            Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, 
+                        (float_t*)inputTensor.data_ptr(), hand_input_tensor_size, hand_input_node_dims.data(), 4);
+            auto output_tensors = sessionHand.Run(Ort::RunOptions{nullptr}, 
+                        input_node_names.data(), &input_tensor, 1, output_node_names.data(), 2);
+            // cout<<output_tensors.size()<<"\n";
+            float* rawKeyptsHPtr = output_tensors[0].GetTensorMutableData<float>();
+            float* rawScoresHPtr = output_tensors[1].GetTensorMutableData<float>();
+            // for(int i=0; i<10; i++)
+            //     cout<<rawBox[i]<<"  ";
+            // Decode Box
+            // rawKeyptsH = torch::from_blob(rawKeyptsHPtr, {batchSizeHand, numKeypointsHand, 3});
+            rawScoresH = torch::from_blob(rawScoresHPtr, {batchSizeHand});
+            cout<<rawScoresH<<endl;
+            /* ---- Draw Hand landmarks ---- */
+            // auto det = rawKeyptsH.accessor<float, 3>();
+            size_t memOffset = numKeypointsHand * 3;
+            for(int i=0; i<batchSizeHand; i++)
+            {
+                cv::Mat_<float> keypointsHand=cv::Mat(numKeypointsHand, 3, CV_32F, (void*)(rawKeyptsHPtr+i*memOffset));
+                float x_offset = handCenters[i].x - cropHands[i].cols * 0.5,
+                      y_offset = handCenters[i].y - cropHands[i].rows * 0.5;
+                keypointsHand = keypointsHand(cv::Rect(0,0,2,numKeypointsHand)).t();
+                keypointsHand.row(0) = keypointsHand.row(0) * cropHands[i].cols / modelWidth + x_offset;
+                keypointsHand.row(1) = keypointsHand.row(1) * cropHands[i].rows / modelHeight + y_offset;
+                auto keypointsMatRe = computePointAffine(keypointsHand, affineMats[i], true);
+                
+                for(int j=0; j<numKeypointsHand; j++)
+                {
+                    cv::circle(showFrame, cv::Point2f(keypointsMatRe(0,j), keypointsMatRe(1,j)), 4, {255, 0, 0});
+                    cv::circle(cropHands[i], cv::Point2f(keypointsHand(0,j)-x_offset+affineMats[i].at<float>(0,2), 
+                                                         keypointsHand(1,j)-y_offset+affineMats[i].at<float>(1,2)), 2, {0, 255, 0});
+                }
+                cv::imshow("CropHand", cropHands[i]);
+                cv::waitKey();
+            }
+
+            if(showPalm)
+            {
+                cv::imshow("PalmDetection", showFrame);
                 if(!videoMode)
                 {
-                    cv::Mat_<float> affineMat = cv::getRotationMatrix2D(cv::Point2f(showWidth, showHeight)/2, -angleDeg, 1);
-                    auto bbox = cv::RotatedRect(cv::Point2f(), showFrame.size(), -angleDeg).boundingRect2f();
-                    affineMat.at<float>(0,2) += bbox.width/2.0 - showFrame.cols/2.0;
-                    affineMat.at<float>(1,2) += bbox.height/2.0 - showFrame.rows/2.0;
-                    cv::Mat rotFrame;
-                    cv::warpAffine(showFrame, rotFrame, affineMat, bbox.size());                    
-                    cv::imshow("Rotated", rotFrame);
                     cv::waitKey();
-                    // Cropping & Point Affine Transformation
-                    cv::Mat_<float> pointMat(3,1);
-                    pointMat << x_center, y_center, 1.0;
-                    cv::Mat_<float> rotPtMat = affineMat * pointMat;
-                    cout<<"AffineMat:\n"<<affineMat<<"\nPointMat:\n"<<pointMat<<"\nrotPtMat:\n"<<rotPtMat<<endl;
-                    cv::Mat_<float> affineMatInv = affineMat(cv::Rect(0,0,2,2)).inv();
-                    cv::Mat_<float> rePointMat = affineMatInv * (rotPtMat - affineMat(cv::Rect(2,0,1,2)));
-                    cout<<"AffineMat Inv:\n"<<affineMatInv<<"\nrePointMat:\n"<<rePointMat<<endl;
-                    cv::Point2f rotCenter(rotPtMat(0), rotPtMat(1));
-                    auto cropHand = rotFrame(cv::Rect(rotCenter.x-0.5*xrescale, rotCenter.y-0.5*yrescale, xrescale, yrescale));
-                    cv::imshow("Rotated", cropHand);
-                    cv::waitKey(); 
                 }
             }
-            cv::imshow("PalmDetection", showFrame);
-            if(!videoMode)
-                cv::waitKey();
             outDetections.pop_front();
         }
 
@@ -284,22 +338,22 @@ inline void matToTensor(cv::Mat const& src, torch::Tensor& out)
     return;
 }
 
-void decodeBoxes(const torch::Tensor &rawBoxes, const torch::Tensor &anchors, torch::Tensor &boxes)
+void decodeBoxes(const torch::Tensor &rawBoxesP, const torch::Tensor &anchors, torch::Tensor &boxes)
 {
-    auto x_center = rawBoxes.slice(2,0,1) / modelWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
-    auto y_center = rawBoxes.slice(2,1,2) / modelHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
+    auto x_center = rawBoxesP.slice(2,0,1) / modelWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
+    auto y_center = rawBoxesP.slice(2,1,2) / modelHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
     
-    auto w = rawBoxes.slice(2,2,3) / modelWidth  * anchors.slice(1,2,3);
-    auto h = rawBoxes.slice(2,3,4) / modelHeight * anchors.slice(1,3,4);
+    auto w = rawBoxesP.slice(2,2,3) / modelWidth  * anchors.slice(1,2,3);
+    auto h = rawBoxesP.slice(2,3,4) / modelHeight * anchors.slice(1,3,4);
 
     boxes.slice(2,0,1) = y_center - h / 2; // ymin
     boxes.slice(2,1,2) = x_center - w / 2; // xmin
     boxes.slice(2,2,3) = y_center + h / 2; // ymax
     boxes.slice(2,3,4) = x_center + w / 2; // xmax
 
-    int offset = 4 + numKeypoints * 2;
-    boxes.slice(2,4,offset,2) = rawBoxes.slice(2,4,offset,2) / modelWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
-    boxes.slice(2,5,offset,2) = rawBoxes.slice(2,5,offset,2) / modelHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
+    int offset = 4 + numKeypointsPalm * 2;
+    boxes.slice(2,4,offset,2) = rawBoxesP.slice(2,4,offset,2) / modelWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
+    boxes.slice(2,5,offset,2) = rawBoxesP.slice(2,5,offset,2) / modelHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
 }
 
 vector<torch::Tensor> weightedNMS(const torch::Tensor &detections)
@@ -382,3 +436,46 @@ torch::Tensor computeIoU(const torch::Tensor &boxA, const torch::Tensor &boxB)
     return (interX / unions).squeeze(0);
 }
 
+cv::Mat_<float> computePointAffine(cv::Mat_<float> &pointsMat, cv::Mat_<float> &affineMat, bool inverse)
+{
+    cout<<pointsMat.size<<endl;
+    if(!inverse)
+    {
+        cv::Mat_<float> ones = cv::Mat::ones(pointsMat.cols, 1, CV_32F);
+        pointsMat.push_back(ones);
+        return affineMat * pointsMat;
+    }
+    else
+    {
+        pointsMat.row(0)-=affineMat.at<float>(0,2);
+        pointsMat.row(1)-=affineMat.at<float>(1,2);
+        cv::Mat_<float> affineMatInv = affineMat(cv::Rect(0,0,2,2)).inv();
+        return affineMatInv * pointsMat;
+    }
+}
+
+        /* ---- Debug ---- */
+        // cv::Mat debugFrame;
+        // // Re-scale boxes
+        // auto rawDets = rawDetections.front();
+        // cout<<rawDets.sizes()<<endl;
+        // auto det = rawDets.accessor<float, 2>();
+        // for(int i=0; i<rawDets.size(0); i++)
+        // {
+        //     showFrame.copyTo(debugFrame);
+        //     auto ymin = det[i][0] * modelHeight;
+        //     auto xmin = det[i][1] * modelWidth;
+        //     auto ymax = det[i][2] * modelHeight;
+        //     auto xmax = det[i][3] * modelWidth;
+        //     cv::rectangle(debugFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-ymin), {0, 0, 255});
+
+        //     for(int j=0; j < numKeypointsPalm; j++)
+        //     {
+        //         int offset = j * 2 + 4;
+        //         auto kp_x = det[i][offset  ] * modelWidth;
+        //         auto kp_y = det[i][offset+1] * modelHeight;
+        //         cv::circle(debugFrame, cv::Point2f(kp_x, kp_y), 2, {0, 255, 0});
+        //     }
+        //     cv::imshow("PalmDetection", debugFrame);
+        //     cv::waitKey();
+        // }
