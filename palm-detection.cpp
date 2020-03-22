@@ -21,6 +21,7 @@ int modelWidth = 256, modelHeight = 256;
 int numAnchors = 2944, outDim = 18, batchSize = 1;
 int numKeypoints = 7;
 float scoreClipThrs = 100.0, minScoreThrs = 0.80, minSuppressionThrs=0.3;
+float shift_y = 0.5, shift_x = 0, box_scale = 2.6;
 
 cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCrop);
 inline void matToTensor(cv::Mat const& src, torch::Tensor& out);
@@ -41,7 +42,7 @@ int main()
     int rawHeight, rawWidth, cropWidthLowBnd, cropWidth, cropHeightLowBnd, cropHeight;
     cv::Mat frame, rawFrame, showFrame, cropFrame, tmpFrame;
     cv::VideoCapture cap;
-    bool videoMode = true;
+    bool videoMode = false;
     // libtorch vars
     torch::NoGradGuard no_grad; // Disable back-grad buffering
     auto options = torch::TensorOptions().dtype(torch::kFloat32);
@@ -204,8 +205,11 @@ int main()
                 auto xmin = det[1] * showWidth;
                 auto ymax = det[2] * showHeight;
                 auto xmax = det[3] * showWidth;
-                cv::rectangle(showFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-ymin), {0, 0, 255});
+                auto xscale = xmax - xmin, yscale = ymax - ymin;
+                auto xrescale = xscale*box_scale, yrescale = yscale*box_scale;
+                cv::rectangle(showFrame, cv::Rect(xmin, ymin, xscale, yscale), {0, 0, 255});
 
+                // Palm's keypoints
                 for(int i=0; i < numKeypoints; i++)
                 {
                     int offset = i * 2 + 4;
@@ -213,12 +217,53 @@ int main()
                     auto kp_y = det[offset+1] * showHeight;
                     cv::circle(showFrame, cv::Point2f(kp_x, kp_y), 2, {0, 255, 0});
                 }
+                cv::line(showFrame, cv::Point2f(det[4]*showWidth,det[5]*showHeight), 
+                                    cv::Point2f(det[8]*showWidth,det[9]*showHeight), {255,0,0}, 1);
+                // Compute rotatation
+                // Line between point 0 and point 2
+                auto angleRad = atan2(det[4]-det[8], det[5]-det[9]);
+                auto angleDeg = angleRad*180/M_PI;
+                // Movement
+                // shift_y > 0 : move 0 --> 2; shift_x > 0 : move right hand side of 0->2
+                auto x_center = xmin + xscale*(0.5-shift_y*sin(angleRad)+shift_x*cos(angleRad)); 
+                auto y_center = ymin + yscale*(0.5-shift_y*cos(angleRad)-shift_x*sin(angleRad));
+                cv::rectangle(showFrame, cv::Rect(x_center-0.5*xscale, y_center-0.5*yscale, xscale, yscale), {0, 255, 255});
+                auto rRect = cv::RotatedRect(cv::Point2f(x_center, y_center), cv::Size2f(xrescale, yrescale), 90 - angleDeg);
+                cv::Point2f vertices[4];
+                rRect.points(vertices);
+                for (int i = 0; i < 4; i++)
+                    cv::line(showFrame, vertices[i], vertices[(i+1)%4], {0,255,0}, 1);
+                if(!videoMode)
+                {
+                    cv::Mat_<float> affineMat = cv::getRotationMatrix2D(cv::Point2f(showWidth, showHeight)/2, -angleDeg, 1);
+                    auto bbox = cv::RotatedRect(cv::Point2f(), showFrame.size(), -angleDeg).boundingRect2f();
+                    affineMat.at<float>(0,2) += bbox.width/2.0 - showFrame.cols/2.0;
+                    affineMat.at<float>(1,2) += bbox.height/2.0 - showFrame.rows/2.0;
+                    cv::Mat rotFrame;
+                    cv::warpAffine(showFrame, rotFrame, affineMat, bbox.size());                    
+                    cv::imshow("Rotated", rotFrame);
+                    cv::waitKey();
+                    // Cropping & Point Affine Transformation
+                    cv::Mat_<float> pointMat(3,1);
+                    pointMat << x_center, y_center, 1.0;
+                    cv::Mat_<float> rotPtMat = affineMat * pointMat;
+                    cout<<"AffineMat:\n"<<affineMat<<"\nPointMat:\n"<<pointMat<<"\nrotPtMat:\n"<<rotPtMat<<endl;
+                    cv::Mat_<float> affineMatInv = affineMat(cv::Rect(0,0,2,2)).inv();
+                    cv::Mat_<float> rePointMat = affineMatInv * (rotPtMat - affineMat(cv::Rect(2,0,1,2)));
+                    cout<<"AffineMat Inv:\n"<<affineMatInv<<"\nrePointMat:\n"<<rePointMat<<endl;
+                    cv::Point2f rotCenter(rotPtMat(0), rotPtMat(1));
+                    auto cropHand = rotFrame(cv::Rect(rotCenter.x-0.5*xrescale, rotCenter.y-0.5*yrescale, xrescale, yrescale));
+                    cv::imshow("Rotated", cropHand);
+                    cv::waitKey(); 
+                }
             }
             cv::imshow("PalmDetection", showFrame);
             if(!videoMode)
                 cv::waitKey();
             outDetections.pop_front();
         }
+
+
     }
 }
 
@@ -229,7 +274,6 @@ cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCro
     cv::Rect ROI(xMin, yMin, xCrop, yCrop);
     resize(frame(ROI), tempImg, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
     // normalize
-
     return tempImg; 
 }
 
@@ -337,3 +381,4 @@ torch::Tensor computeIoU(const torch::Tensor &boxA, const torch::Tensor &boxB)
     auto unions = areaA + areaB - interX;
     return (interX / unions).squeeze(0);
 }
+
