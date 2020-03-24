@@ -19,11 +19,14 @@ using namespace std;
 
 int modelWidth = 256, modelHeight = 256;
 int numAnchors = 2944, outDim = 18, batchSizePalm = 1;
-int numKeypointsPalm = 7, numKeypointsHand = 21;
-float scoreClipThrs = 100.0, minScoreThrs = 0.80, minSuppressionThrs=0.3;
+int numKeypointsPalm = 7, numKeypointsHand = 21, numJointConnect=20;
+float scoreClipThrs = 100.0, minScoreThrs = 0.80, minSuppressionThrs=0.3, handThrs = 0.8;
 float shift_y = 0.5, shift_x = 0, box_scale = 2.6;
-
-bool videoMode = false, showPalm = true;
+bool videoMode = true, showPalm = false;
+int jointConnect[20][2] = {
+    {0,1}, {1,2}, {2,3}, {3,4}, {0,5}, {5,6}, {6,7}, {7,8}, {0,9}, {9,10}, {10,11}, 
+    {11,12}, {0,13}, {13,14}, {14,15}, {15,16}, {0,17}, {17,18}, {18,19}, {19,20}
+};
 
 cv::Mat cropResize(const cv::Mat& frame, int xMin, int yMin, int xCrop, int yCrop);
 inline void matToTensor(cv::Mat const& src, torch::Tensor& out);
@@ -46,9 +49,9 @@ int main()
     int rawHeight, rawWidth, cropWidthLowBnd, cropWidth, cropHeightLowBnd, cropHeight;
     cv::Mat frame, rawFrame, showFrame, cropFrame, inFrame, tmpFrame;
     cv::VideoCapture cap;
-    vector<cv::Mat> cropHands;
-    vector<cv::Mat_<float>> affineMats;
-    vector<cv::Point2f> handCenters;
+    deque<cv::Mat> cropHands;
+    deque<cv::Mat_<float>> affineMats;
+    deque<cv::Point2f> handCenters;
 
     // libtorch vars
     torch::NoGradGuard no_grad; // Disable back-grad buffering
@@ -113,7 +116,7 @@ int main()
         cropHeightLowBnd = 0;
         cropHeight = cropWidth = rawHeight;
     }
-    cout<<cropWidthLowBnd<<" "<<cropHeightLowBnd<<"\n";
+    // cout<<cropWidthLowBnd<<" "<<cropHeightLowBnd<<"\n";
     /* ---- OpenCV pre-processing ---- */
     while(cv::waitKey(1) < 0)
     {
@@ -184,6 +187,9 @@ int main()
             // Re-scale boxes
             if(showPalm)
                 cropFrame.copyTo(showFrame);
+            else
+                showFrame = cropFrame;
+            
             auto outDets = outDetections.front();
             for(auto& det_t:outDets)
             {
@@ -253,67 +259,74 @@ int main()
                 handCenters.push_back(rotCenter);
             }
             int batchSizeHand = cropHands.size();
-            std::vector<int64_t> hand_input_node_dims = {batchSizeHand, 3, modelHeight, modelWidth};
-            size_t hand_input_tensor_size = batchSizeHand * 3 * modelHeight * modelWidth;
-            auto handsTensor = torch::empty({batchSizeHand, modelWidth, modelHeight, 3});
-            int idx = 0;
-            for(auto& cropHand: cropHands)
+            if(batchSizeHand)
             {
-                resize(cropHand, tmpFrame, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
-                // showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
-                cv::cvtColor(tmpFrame, tmpFrame, cv::COLOR_BGR2RGB);
-                tmpFrame.convertTo(tmpFrame, CV_32F);
-                tmpFrame = tmpFrame / 127.5 - 1.0;
-                auto tmpHand = torch::from_blob(tmpFrame.data, {1, modelHeight, modelWidth, 3});
-                handsTensor.slice(0, idx, idx+1) = tmpHand;
-                idx++;
-            }
-            /* ---- Hand NN Inference ---- */
-            inputTensor = handsTensor.permute({0,3,1,2}).to(torch::kCPU, false, true);
-            Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, 
-                        (float_t*)inputTensor.data_ptr(), hand_input_tensor_size, hand_input_node_dims.data(), 4);
-            auto output_tensors = sessionHand.Run(Ort::RunOptions{nullptr}, 
-                        input_node_names.data(), &input_tensor, 1, output_node_names.data(), 2);
-            // cout<<output_tensors.size()<<"\n";
-            float* rawKeyptsHPtr = output_tensors[0].GetTensorMutableData<float>();
-            float* rawScoresHPtr = output_tensors[1].GetTensorMutableData<float>();
-            // for(int i=0; i<10; i++)
-            //     cout<<rawBox[i]<<"  ";
-            // Decode Box
-            // rawKeyptsH = torch::from_blob(rawKeyptsHPtr, {batchSizeHand, numKeypointsHand, 3});
-            rawScoresH = torch::from_blob(rawScoresHPtr, {batchSizeHand});
-            cout<<rawScoresH<<endl;
-            /* ---- Draw Hand landmarks ---- */
-            // auto det = rawKeyptsH.accessor<float, 3>();
-            size_t memOffset = numKeypointsHand * 3;
-            for(int i=0; i<batchSizeHand; i++)
-            {
-                cv::Mat_<float> keypointsHand=cv::Mat(numKeypointsHand, 3, CV_32F, (void*)(rawKeyptsHPtr+i*memOffset));
-                float x_offset = handCenters[i].x - cropHands[i].cols * 0.5,
-                      y_offset = handCenters[i].y - cropHands[i].rows * 0.5;
-                keypointsHand = keypointsHand(cv::Rect(0,0,2,numKeypointsHand)).t();
-                keypointsHand.row(0) = keypointsHand.row(0) * cropHands[i].cols / modelWidth + x_offset;
-                keypointsHand.row(1) = keypointsHand.row(1) * cropHands[i].rows / modelHeight + y_offset;
-                auto keypointsMatRe = computePointAffine(keypointsHand, affineMats[i], true);
-                
-                for(int j=0; j<numKeypointsHand; j++)
+                std::vector<int64_t> hand_input_node_dims = {batchSizeHand, 3, modelHeight, modelWidth};
+                size_t hand_input_tensor_size = batchSizeHand * 3 * modelHeight * modelWidth;
+                auto handsTensor = torch::empty({batchSizeHand, modelWidth, modelHeight, 3});
+                int idx = 0;
+                for(auto& cropHand: cropHands)
                 {
-                    cv::circle(showFrame, cv::Point2f(keypointsMatRe(0,j), keypointsMatRe(1,j)), 4, {255, 0, 0});
-                    cv::circle(cropHands[i], cv::Point2f(keypointsHand(0,j)-x_offset+affineMats[i].at<float>(0,2), 
-                                                         keypointsHand(1,j)-y_offset+affineMats[i].at<float>(1,2)), 2, {0, 255, 0});
+                    resize(cropHand, tmpFrame, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
+                    // showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
+                    cv::cvtColor(tmpFrame, tmpFrame, cv::COLOR_BGR2RGB);
+                    tmpFrame.convertTo(tmpFrame, CV_32F);
+                    tmpFrame = tmpFrame / 127.5 - 1.0;
+                    auto tmpHand = torch::from_blob(tmpFrame.data, {1, modelHeight, modelWidth, 3});
+                    handsTensor.slice(0, idx, idx+1) = tmpHand;
+                    idx++;
                 }
-                cv::imshow("CropHand", cropHands[i]);
+                /* ---- Hand NN Inference ---- */
+                inputTensor = handsTensor.permute({0,3,1,2}).to(torch::kCPU, false, true);
+                Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, 
+                            (float_t*)inputTensor.data_ptr(), hand_input_tensor_size, hand_input_node_dims.data(), 4);
+                auto output_tensors = sessionHand.Run(Ort::RunOptions{nullptr}, 
+                            input_node_names.data(), &input_tensor, 1, output_node_names.data(), 2);
+                // cout<<output_tensors.size()<<"\n";
+                float* rawKeyptsHPtr = output_tensors[0].GetTensorMutableData<float>();
+                float* rawScoresHPtr = output_tensors[1].GetTensorMutableData<float>();
+                // rawKeyptsH = torch::from_blob(rawKeyptsHPtr, {batchSizeHand, numKeypointsHand, 3});
+                // rawScoresH = torch::from_blob(rawScoresHPtr, {batchSizeHand});
+                // cout<<rawScoresH<<endl;
+                /* ---- Draw Hand landmarks ---- */
+                // auto det = rawKeyptsH.accessor<float, 3>();
+                size_t memOffset = numKeypointsHand * 3;
+                for(int i=0; i<batchSizeHand; i++)
+                {
+                    if(rawScoresHPtr[i]>handThrs)
+                    {
+                        cv::Mat_<float> keypointsHand=cv::Mat(numKeypointsHand, 3, CV_32F, (void*)(rawKeyptsHPtr+i*memOffset));
+                        float x_offset = handCenters.front().x - cropHands.front().cols * 0.5,
+                            y_offset = handCenters.front().y - cropHands.front().rows * 0.5;
+                        keypointsHand = keypointsHand(cv::Rect(0,0,2,numKeypointsHand)).t();
+                        keypointsHand.row(0) = keypointsHand.row(0) * cropHands.front().cols / modelWidth + x_offset;
+                        keypointsHand.row(1) = keypointsHand.row(1) * cropHands.front().rows / modelHeight + y_offset;
+                        auto keypointsMatRe = computePointAffine(keypointsHand, affineMats.front(), true);
+                        
+                        for(int j=0; j<numKeypointsHand; j++)
+                        {
+                            cv::circle(showFrame, cv::Point2f(keypointsMatRe(0,j), keypointsMatRe(1,j)), 4, {255, 0, 0}, -1);
+                            // cv::circle(cropHands.front(), cv::Point2f(keypointsHand(0,j)-x_offset+affineMats.front().at<float>(0,2), 
+                            //                             keypointsHand(1,j)-y_offset+affineMats.front().at<float>(1,2)), 2, {0, 255, 0});
+                        }
+                        for(int j=0; j<numJointConnect; j++)
+                        {
+                            cv::line(showFrame, cv::Point2f(keypointsMatRe(0,jointConnect[j][0]), keypointsMatRe(1,jointConnect[j][0])), 
+                                    cv::Point2f(keypointsMatRe(0,jointConnect[j][1]), keypointsMatRe(1,jointConnect[j][1])), {255,255,255}, 2);
+                        }
+                        // cv::imshow("CropHand", cropHands.front());
+                        // cv::waitKey();
+                    }
+                    handCenters.pop_front(); affineMats.pop_front(); cropHands.pop_front();
+                }
+            }
+
+            cv::imshow("PalmDetection", showFrame);
+            if(!videoMode)
+            {
                 cv::waitKey();
             }
 
-            if(showPalm)
-            {
-                cv::imshow("PalmDetection", showFrame);
-                if(!videoMode)
-                {
-                    cv::waitKey();
-                }
-            }
             outDetections.pop_front();
         }
 
@@ -438,7 +451,7 @@ torch::Tensor computeIoU(const torch::Tensor &boxA, const torch::Tensor &boxB)
 
 cv::Mat_<float> computePointAffine(cv::Mat_<float> &pointsMat, cv::Mat_<float> &affineMat, bool inverse)
 {
-    cout<<pointsMat.size<<endl;
+    // cout<<pointsMat.size<<endl;
     if(!inverse)
     {
         cv::Mat_<float> ones = cv::Mat::ones(pointsMat.cols, 1, CV_32F);
