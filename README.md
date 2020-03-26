@@ -45,3 +45,16 @@ E-->G[masking]
 F-->G
 G-->H[weighted_NMS]
 ````
+
+Hand 
+
+```mermaid
+graph TD
+A[Video]-->B[Palm Detection Network]
+B-->C[Rotation and Cropping]
+C-->D[Hand Landmark Network]
+D-->E[Show Results]
+D-->B
+A-->D
+```
+
