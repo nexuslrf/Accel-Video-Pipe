@@ -1,3 +1,5 @@
+// set "MSBUILD_BIN=C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe"
+// "%MSBUILD_BIN%" Samples.sln /p:Configuration=Release
 #include <fstream>
 #include <sstream>
 #include <cmath>
@@ -52,6 +54,13 @@ int numLoop = 10;
 string model_name = "C:\\Users\\Ruofan\\Programming\\Accel-Video-Pipe\\models\\pose_resnet_34_256x192";
 int main()
 {
+    // auto tmp = torch::from_file("anchors.bin", NULL, 2944*4, torch::kFloat32).reshape({2944, 4});
+    // cout<<tmp.slice(0,0,6)<<endl;
+
+    // fstream fin("anchors.bin", ios::in | ios::binary);
+    // auto anchors = torch::empty({2944, 4}, torch::kFloat32);
+    // fin.read((char *)anchors.data_ptr(), anchors.numel() * sizeof(float));
+    // cout<<anchors.slice(0,0,6)<<endl;
     /* LibTorch */
     {
         torch::NoGradGuard no_grad; // Disable back-grad buffering
@@ -128,6 +137,36 @@ int main()
             InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
             auto stop2 = chrono::high_resolution_clock::now();
             cout << "OpenVINO GPU Processing Time: " << chrono::duration_cast<chrono::milliseconds>(stop2 - stop1).count() << "ms\n";
+        }
+    }
+
+    /* OpenVINO */
+    // VPU Version
+    {
+        string model_xml = model_name + ".xml";
+        string model_bin = model_name + ".bin";
+        InferenceEngine::Core ie;
+        auto network = ie.ReadNetwork(model_xml, model_bin);
+        network.setBatchSize(batchSize);
+        auto input_info = network.getInputsInfo().begin()->second;
+        string input_name = network.getInputsInfo().begin()->first;
+        auto output_info = network.getOutputsInfo().begin()->second;
+        string output_name = network.getOutputsInfo().begin()->first;
+        auto executable_network = ie.LoadNetwork(network, "MYRIAD"); // Unknown problems for GPU version
+        auto infer_request = executable_network.CreateInferRequest();
+        auto tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32,
+                                                 {(uint)batchSize, 3, (uint)modelHeight, (uint)modelWidth},
+                                                 InferenceEngine::Layout::NCHW);
+        for (int i = 0; i < numLoop; i++)
+        {
+            auto stop1 = chrono::high_resolution_clock::now();
+            auto inData = torch::randn({batchSize, 3, modelHeight, modelWidth}, torch::kF32);
+            InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t *)inData.data_ptr());
+            infer_request.SetBlob(input_name, inBlob);
+            infer_request.Infer();
+            InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+            auto stop2 = chrono::high_resolution_clock::now();
+            cout << "OpenVINO VPU Processing Time: " << chrono::duration_cast<chrono::milliseconds>(stop2 - stop1).count() << "ms\n";
         }
     }
 
