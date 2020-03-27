@@ -15,16 +15,11 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc") #no asynchronous structured exc
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LARGEADDRESSAWARE")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4251 /wd4275 /wd4267") #disable some warnings
 
-
-
 find_package(InferenceEngine REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Torch REQUIRED)
 #include_directories("C:\\Users\\Ruofan\\Programming\\Libraries\\libtorch\\include")
-
-add_executable( video-analysis video-analysis.cpp )
-target_link_libraries( video-analysis ${OpenCV_LIBS})
-target_link_libraries( video-analysis ${TORCH_LIBRARIES})
+include_directories("C:\\Users\\Ruofan\\Programming\\Libraries\\onnxruntime-win-x64-1.1.2\\include")
 
 message(STATUS "Pytorch status:")
 message(STATUS "    libraries: ${TORCH_LIBRARIES}")
@@ -38,6 +33,10 @@ message(STATUS "OpenVINO status")
 message(STATUS "    version: ${InferenceEngine_VERSION}")
 message(STATUS "    libraries: ${InferenceEngine_LIBRARIES}")
 
+add_executable( video-analysis video-analysis.cpp )
+target_link_libraries( video-analysis ${OpenCV_LIBS})
+target_link_libraries( video-analysis ${TORCH_LIBRARIES})
+
 #add_definitions(-D_DEBUG)
 #add_definitions(-D_FOO_TEST)
 add_definitions(-D_TIMING)
@@ -50,4 +49,12 @@ target_link_libraries( speed-bench ${InferenceEngine_LIBRARIES})
 #target_link_libraries( speed-bench "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/lib/libonnxruntime.1.1.2.dylib")
 set_target_properties( speed-bench PROPERTIES COMPILE_PDB_NAME speed-bench)
 
+add_executable( palm-detection palm-detection.cpp)
+target_link_libraries( palm-detection ${OpenCV_LIBS} )
+target_link_libraries( palm-detection ${TORCH_LIBRARIES})
+target_link_libraries( palm-detection "C:\\Users\\Ruofan\\Programming\\Libraries\\onnxruntime-win-x64-1.1.2\\lib\\onnxruntime.lib")
+set_target_properties( palm-detection PROPERTIES COMPILE_PDB_NAME speed-bench)
+
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ldl -pthread -fPIC -ltvm_runtime")
+
+
