@@ -42,6 +42,12 @@ target_link_libraries( hand-keypoint ${OpenCV_LIBS} )
 target_link_libraries( hand-keypoint "${TORCH_LIBRARIES}")
 target_link_libraries( hand-keypoint "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/lib/libonnxruntime.1.1.2.dylib")
 
+add_executable( multi-model multi-model.cpp)
+target_link_libraries( multi-model ${OpenCV_LIBS} )
+target_link_libraries( multi-model "${TORCH_LIBRARIES}")
+target_link_libraries( multi-model "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/lib/libonnxruntime.1.1.2.dylib")
+
+
 message(STATUS "Pytorch status:")
 message(STATUS "    libraries: ${TORCH_LIBRARIES}")
 
