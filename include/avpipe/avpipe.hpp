@@ -3,9 +3,6 @@
  * author Ruofan Liang
  * collection of avpipe APIs
  */
-#ifndef AVPIPE_ALL_HPP
-#define AVPIPE_ALL_HPP
+#pragma once
 
 #include "base.hpp"
-
-#endif

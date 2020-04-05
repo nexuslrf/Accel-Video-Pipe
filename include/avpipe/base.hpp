@@ -2,15 +2,17 @@
  * Copyright (c) 2020 by Contributors
  * author Ruofan Liang
  * base data structure for AV-Pipe
+ * Suppose default stream data type is torch::tensor
  */
-#ifndef AVPIPE_BASE_HPP
-#define AVPIPE_BASE_HPP
+#pragma once
 
 #include <iostream>
 #include <string>
 #include <vector>
 
 namespace avp {
+
+using SizeVector = std::vector<size_t>;
 
 template<typename T>
 class StreamPackage{
@@ -30,12 +32,10 @@ template<typename T>
 class PipeProcessor{
 public:
     std::string name;
-    PPType proc_type;
-    virtual void Initialize() = 0;
-    virtual void Process(StreamPackage<T>& inData) = 0;
+    PPType procType;
+    PipeProcessor(std::string pp_name, PPType pp_type): name(pp_name), procType(pp_type)
+    {}
+    virtual void Process(StreamPackage<T>& inData, StreamPackage<T>& outData) = 0;
     virtual void Stop() = 0;
 };
-
 }
-
-#endif
