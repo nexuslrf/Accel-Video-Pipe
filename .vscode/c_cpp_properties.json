@@ -10,7 +10,8 @@
                 "/Users/liangruofan1/Program/tvm/include",
                 "/Users/liangruofan1/Program/tvm/3rdparty/dlpack/include",
                 "/Users/liangruofan1/Program/tvm/3rdparty/dmlc-core/include",
-                "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/include"
+                "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/include",
+                "/Users/liangruofan1/Program/Accel-Video-Pipe/include"
             ],
             "defines": [],
             "macFrameworkPath": [

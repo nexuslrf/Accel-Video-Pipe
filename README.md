@@ -3,11 +3,11 @@ AV Pipe :-)
 
 ## AV-Pipe Roadmap
 
-* [ ] Packaging NN inference engine, into universal API
+* [x] Packaging NN inference engine, into universal API
 
-  * [ ] ONNX RT
-  * [ ] OpenVINO
-  * [ ] LibTorch
+  * [x] ONNX RT
+  * [x] OpenVINO
+  * [x] LibTorch
   * [ ] Cloud API
 
   ----- By 4.03 -----

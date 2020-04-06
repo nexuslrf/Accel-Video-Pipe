@@ -19,6 +19,10 @@ class StreamPackage{
 public:
     T data;
     int timestamp;
+    virtual void* data_ptr()
+    {
+        return NULL;
+    }
 };
 
 /*! pipe processor type */
@@ -35,7 +39,7 @@ public:
     PPType procType;
     PipeProcessor(std::string pp_name, PPType pp_type): name(pp_name), procType(pp_type)
     {}
-    virtual void Process(StreamPackage<T>& inData, StreamPackage<T>& outData) = 0;
-    virtual void Stop() = 0;
+    virtual void Process(StreamPackage<T>& in_data, StreamPackage<T>& out_data) = 0;
+    // virtual void Stop() = 0;
 };
 }

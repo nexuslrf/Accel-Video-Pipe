@@ -15,15 +15,15 @@ class OpenVinoProcessor: public NNProcessor<T> {
     InferenceEngine::InferRequest inferRequest;
     InferenceEngine::TensorDesc tDesc;
     InferenceEngine::ExecutableNetwork executableNN;
-    string inputName, outputName;
+    std::string inputName, outputName;
 public:
     OpenVinoProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, 
-        std::string pp_name = ""): NNProcessor(dims, OPENVINO, data_layout, pp_name)  
+        std::string pp_name = ""): NNProcessor<T>(dims, OPENVINO, data_layout, pp_name)  
     {
-        string model_xml = model_path+".xml";
-        string model_bin = model_path+".bin";
+        std::string model_xml = model_path+".xml";
+        std::string model_bin = model_path+".bin";
         network = ie.ReadNetwork(model_xml, model_bin);
-        network.setBatchSize(batchSize);
+        network.setBatchSize(this->batchSize);
         inputName = network.getInputsInfo().begin()->first;
         outputName = network.getOutputsInfo().begin()->first;
         executableNN = ie.LoadNetwork(network, "CPU");
@@ -31,14 +31,19 @@ public:
         tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32, dims,
                                         InferenceEngine::Layout::NCHW);
     } 
-    void Process(StreamPackage<T>& inData, StreamPackage<T>& outData)
+    void Process(StreamPackage<T>& in_data, StreamPackage<T>& out_data)
     {
         InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, 
-            (float_t*)inData.data.data_ptr());
+            (float_t*)in_data.data_ptr());
         inferRequest.SetBlob(inputName, inBlob);
-        infer_request.Infer();
-        InferenceEngine::Blob::Ptr output = infer_request.GetBlob(outputName);
-        
+        inferRequest.Infer();
+        InferenceEngine::Blob::Ptr outBlob = inferRequest.GetBlob(outputName);
+        auto dims = outBlob->getTensorDesc().getDims();
+        int out_batchSize = dims[0], out_channels = dims[1], 
+            out_height = dims[2], out_width = dims[3];
+        out_data.data = torch::from_blob(outBlob->buffer().as<float*>(), 
+            {out_batchSize, out_channels, out_height, out_width});
+        // outBlob.get();
     }
 
 };

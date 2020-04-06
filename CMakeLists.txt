@@ -11,7 +11,6 @@ find_package( OpenCV 4.2 REQUIRED )
 find_package( Torch REQUIRED)
 
 include_directories( ${OpenCV_INCLUDE_DIRS} )
-include_directories( ${})
 include_directories( "/Users/liangruofan1/Program/tvm/include")
 include_directories( "/Users/liangruofan1/Program/tvm/3rdparty/dlpack/include")
 include_directories( "/Users/liangruofan1/Program/tvm/3rdparty/dmlc-core/include")
