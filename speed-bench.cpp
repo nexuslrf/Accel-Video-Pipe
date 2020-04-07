@@ -72,6 +72,7 @@ int main()
     }
 
     /* OpenVINO */
+    // https://software.intel.com/en-us/forums/intel-distribution-of-openvino-toolkit/topic/808401
     {
         string model_xml = model_name+".xml";
         string model_bin = model_name+".bin";
