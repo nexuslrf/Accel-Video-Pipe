@@ -5,8 +5,7 @@
 
 namespace avp {
 
-template<typename T>
-class ONNXRuntimeProcessor: public NNProcessor<T> {
+class ONNXRuntimeProcessor: public NNProcessor {
     Ort::Env env{ORT_LOGGING_LEVEL_WARNING, "test"};
     Ort::SessionOptions sessionOptions;
     Ort::Session* sessionPtr;
@@ -17,7 +16,7 @@ class ONNXRuntimeProcessor: public NNProcessor<T> {
     std::vector<const char*> inputNodeNames, outputNodeNames;
 public:
     ONNXRuntimeProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, 
-        std::string pp_name = ""): NNProcessor<T>(dims, ONNX_RT, data_layout, pp_name), 
+        std::string pp_name = ""): NNProcessor(dims, ONNX_RT, data_layout, pp_name), 
         memInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)) 
     {
         inDims = std::vector<int64_t>({(int64_t)this->batchSize, (int64_t)this->channels, 
@@ -48,7 +47,7 @@ public:
     {
         delete sessionPtr;
     }
-    void Process(StreamPackage<T>& in_data, StreamPackage<T>& out_data)
+    void Process()
     {
         Ort::Value inTensor = Ort::Value::CreateTensor<float>(memInfo, (float_t*)in_data.data_ptr(), 
             inputTensorSize, inDims.data(), inDims.size());
@@ -56,7 +55,7 @@ public:
                 &inTensor, numInputNodes, outputNodeNames.data(), numOutputNodes);
         float* rawPtr = outputTensors[0].Ort::Value::template GetTensorMutableData<float>();
         auto outDims = outputTensors[0].GetTypeInfo().GetTensorTypeAndShapeInfo().GetShape();
-        out_data.data = torch::from_blob(rawPtr, {outDims[0], outDims[1], outDims[2], outDims[3]});
+        out_data.tensor = torch::from_blob(rawPtr, {outDims[0], outDims[1], outDims[2], outDims[3]});
     }
 };
 

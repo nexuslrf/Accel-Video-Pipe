@@ -1,3 +1,6 @@
+/*!
+ * Deprecated
+ */
 #pragma once
 
 #include <opencv2/opencv.hpp>
@@ -7,8 +10,9 @@ namespace avp {
 
 using Mat = cv::Mat;
 
-class CVMatPackage: public StreamPackage<Mat> {
+class CVMatPackage: public StreamPackage {
 public:
+    Mat data;
     CVMatPackage(Mat& mat_data, int mat_timestamp=-1)
     {
         data = mat_data;

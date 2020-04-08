@@ -2,14 +2,14 @@
 #include <nn_inference/libtorch.hpp>
 #include <nn_inference/openvino.hpp>
 #include <nn_inference/onnx_runtime.hpp>
-#include <avpipe/tensor_package.hpp>
+#include <avpipe/base.hpp>
 
 int main()
 {
     avp::SizeVector dims({2,3,256,192});
     auto inTensor = torch::randn({2,3,256,192}, torch::kFloat32);
-    avp::TensorPackage inData(inTensor);
-    avp::TensorPackage outData;
+    avp::StreamPackage inData(inTensor);
+    avp::StreamPackage outData;
     std::string model_name = "/Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192";
     /* LibTorch Interface */
     {

@@ -1,4 +1,3 @@
-# Accel-Video-Pipe
 AV Pipe :-)
 
 ## AV-Pipe Roadmap
@@ -10,13 +9,33 @@ AV Pipe :-)
   * [x] LibTorch
   * [ ] Cloud API
 
-  ----- By 4.03 -----
+  TODO: 
+
+  * multi-input/output optimization
+  * **Processors** need a time indicator to allow repeative consuming
 
 * [ ] Build Stream Package Struct/Class
 
+  * [x] torch::Tensor
+  * [x] cv::Mat
+* [ ] Mat <-> Tensor
   * Attention to Sync problem
 
-* [ ] XML representation of Pipeline
+* [ ] CV vision transformation
+
+  * Stream-generator
+    * [ ] Video file
+    * [ ] Webcam
+
+  * Pre-processing
+    * [ ] Normalization
+    * [ ] Layout Transfromation
+    * [ ] Rotation & Crop
+  * Post-processing
+    * [ ] Rendering
+
+
+* [ ] YAML representation of Pipeline
 
 * [ ] Code/Proc auto-generating
 

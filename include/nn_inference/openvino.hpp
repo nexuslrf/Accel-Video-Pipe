@@ -8,8 +8,7 @@
 
 namespace avp {
 
-template<typename T>
-class OpenVinoProcessor: public NNProcessor<T> {
+class OpenVinoProcessor: public NNProcessor {
     InferenceEngine::Core ie;
     InferenceEngine::CNNNetwork network;
     InferenceEngine::InferRequest inferRequest;
@@ -18,7 +17,7 @@ class OpenVinoProcessor: public NNProcessor<T> {
     std::string inputName, outputName;
 public:
     OpenVinoProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, 
-        std::string pp_name = ""): NNProcessor<T>(dims, OPENVINO, data_layout, pp_name)  
+        std::string pp_name = ""): NNProcessor(dims, OPENVINO, data_layout, pp_name)  
     {
         std::string model_xml = model_path+".xml";
         std::string model_bin = model_path+".bin";
@@ -31,7 +30,7 @@ public:
         tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32, dims,
                                         InferenceEngine::Layout::NCHW);
     } 
-    void Process(StreamPackage<T>& in_data, StreamPackage<T>& out_data)
+    void Process()
     {
         InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, 
             (float_t*)in_data.data_ptr());
@@ -41,7 +40,7 @@ public:
         auto dims = outBlob->getTensorDesc().getDims();
         int out_batchSize = dims[0], out_channels = dims[1], 
             out_height = dims[2], out_width = dims[3];
-        out_data.data = torch::from_blob(outBlob->buffer().as<float*>(), 
+        out_data.tensor = torch::from_blob(outBlob->buffer().as<float*>(), 
             {out_batchSize, out_channels, out_height, out_width});
         // outBlob.get();
     }

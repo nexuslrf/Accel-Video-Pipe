@@ -5,23 +5,33 @@
 
 namespace avp {
 
-template<typename T>
-class LibTorchProcessor: public NNProcessor<T> {
+class LibTorchProcessor: public NNProcessor {
     torch::jit::script::Module model;
     std::vector<torch::jit::IValue> inputs;
 public:
     LibTorchProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, 
-        std::string pp_name = ""): NNProcessor<T>(dims, LIBTORCH, data_layout, pp_name)    
+        std::string pp_name = ""): NNProcessor(dims, LIBTORCH, data_layout, pp_name)    
     {
         torch::NoGradGuard no_grad;
         model = torch::jit::load(model_path);
     }
-    void Process(StreamPackage<T>& in_data, StreamPackage<T>& out_data)
+    void Process()
     {
         torch::NoGradGuard no_grad;
-        inputs.push_back(in_data.data);
-        out_data.data = model.forward(inputs).toTensor();
-        inputs.pop_back();
+        if(inStreams.empty()||outStreams.empty())
+        {
+            std::cerr<<"inStreams are empty!\n";
+            exit(0);
+        }
+        while(!inStreams[0]->empty()){
+            auto in_data = inStreams[0]->front();
+            StreamPackage out_data;
+            inputs.push_back(in_data.tensor);
+            out_data.tensor = model.forward(inputs).toTensor();
+            outStreams[0]->push(out_data);
+            inputs.pop_back();
+            inStreams[0]->Consume();
+        }
     }
 };
 }

@@ -1,4 +1,5 @@
 /*!
+ * Deprecated
  * The default tensor type is torch::tensor
  */
 
@@ -11,8 +12,9 @@ namespace avp {
 
 using Tensor = torch::Tensor;
 
-class TensorPackage: public StreamPackage<Tensor> {
+class TensorPackage: public StreamPackage {
 public:
+    Tensor data;
     TensorPackage(Tensor& tensor_data, int tensor_timestamp=-1)
     {
         data = tensor_data;
@@ -24,5 +26,4 @@ public:
         return data.data_ptr();
     }
 };
-
 }

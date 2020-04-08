@@ -21,8 +21,7 @@ enum DataLayout {
     NCHW = 1
 };
 
-template<typename T>
-class NNProcessor: public PipeProcessor<T>{
+class NNProcessor: public PipeProcessor{
 public:
     size_t inWidth;
     size_t inHeight;
@@ -31,7 +30,7 @@ public:
     IEType ieType;
     DataLayout dataLayout;
     NNProcessor(SizeVector dims, IEType ie_type, DataLayout data_layout,
-                std::string pp_name): PipeProcessor<T>(pp_name, STREAM_PROC)
+                std::string pp_name): PipeProcessor(pp_name, STREAM_PROC)
     {
         batchSize = dims[0];
         channels = dims[1];
