@@ -47,7 +47,7 @@ public:
     {
         delete sessionPtr;
     }
-    void Process()
+    void Infer(StreamPacket& in_data, StreamPacket& out_data)
     {
         Ort::Value inTensor = Ort::Value::CreateTensor<float>(memInfo, (float_t*)in_data.data_ptr(), 
             inputTensorSize, inDims.data(), inDims.size());

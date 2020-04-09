@@ -39,6 +39,31 @@ public:
         ieType = ie_type;
         dataLayout = data_layout;
     }
+    virtual void Infer(StreamPacket& in_data, StreamPacket& out_data) = 0;
+    void Process()
+    {
+        if(inStreams.empty()||outStreams.empty())
+        {
+            std::cerr<<"Streams are empty!\n";
+            exit(0);
+        }
+        // @TODO: disentangle while loop in the future!
+        while(!inStreams[0]->empty())
+        {
+            auto in_data = inStreams[0]->front();
+            if(in_data.empty())
+                break;
+            if(in_data.timestamp==timeTick)
+                continue;
+            else
+                timeTick = in_data.timestamp;
+            StreamPacket out_data(AVP_TENSOR, timeTick);
+            AddTick();
+            Infer(in_data, out_data);
+            outStreams[0]->LoadPacket(out_data);
+            inStreams[0]->ReleasePacket();
+        }
+    }
 
 };
 

@@ -15,23 +15,12 @@ public:
         torch::NoGradGuard no_grad;
         model = torch::jit::load(model_path);
     }
-    void Process()
+    void Infer(StreamPacket& in_data, StreamPacket& out_data)
     {
         torch::NoGradGuard no_grad;
-        if(inStreams.empty()||outStreams.empty())
-        {
-            std::cerr<<"inStreams are empty!\n";
-            exit(0);
-        }
-        while(!inStreams[0]->empty()){
-            auto in_data = inStreams[0]->front();
-            StreamPackage out_data;
-            inputs.push_back(in_data.tensor);
-            out_data.tensor = model.forward(inputs).toTensor();
-            outStreams[0]->push(out_data);
-            inputs.pop_back();
-            inStreams[0]->Consume();
-        }
+        inputs.push_back(in_data.tensor);
+        out_data.tensor = model.forward(inputs).toTensor();
+        inputs.pop_back();
     }
 };
 }

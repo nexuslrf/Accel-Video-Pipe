@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 #include <queue>
+#include <mutex>
 
 namespace avp {
 
@@ -23,23 +24,26 @@ enum PackType {
     AVP_MAT = 0,
     AVP_TENSOR = 1
 };
-class StreamPackage{
+class StreamPacket{
 public:
     Mat mat;
     Tensor tensor;
     int timestamp;
-    bool empty;
+    int numConsume;
     PackType dataType;
-    StreamPackage(PackType data_type=AVP_TENSOR): timestamp(-1), empty(1), dataType(data_type) {}
-    StreamPackage(Tensor& tensor_data, int tensor_timestamp=-1): 
-        tensor(tensor_data), timestamp(tensor_timestamp), dataType(AVP_TENSOR)
+    StreamPacket(PackType data_type=AVP_TENSOR, int init_timestamp=-1): timestamp(init_timestamp), numConsume(0), dataType(data_type) {}
+    StreamPacket(Tensor& tensor_data, int tensor_timestamp=-1): 
+        tensor(tensor_data), timestamp(tensor_timestamp), numConsume(0), dataType(AVP_TENSOR) {}
+    StreamPacket(Mat& mat_data, int mat_timestamp=-1):
+        mat(mat_data), timestamp(mat_timestamp), numConsume(0), dataType(AVP_MAT) {}
+    bool empty(PackType data_type=AVP_TENSOR)
     {
-        empty = tensor.numel() == 0?true:false;
-    }
-    StreamPackage(Mat& mat_data, int mat_timestamp=-1):
-        mat(mat_data), timestamp(mat_timestamp), dataType(AVP_MAT)
-    {
-        empty = mat.empty()?true:false;
+        if(data_type==AVP_TENSOR)
+            return tensor.numel() == 0;
+        else if(data_type==AVP_MAT)
+            return mat.empty();
+        else
+            return true;
     }
     void* data_ptr()
     {
@@ -47,9 +51,11 @@ public:
             return mat.data;
         else if(dataType==AVP_TENSOR)
             return tensor.data_ptr();
+        return NULL;
     }
-    Mat getMat(){}
-    Tensor getTensor(){}
+
+    // Mat getMat(){}
+    // Tensor getTensor(){}
 };
 
 /*! pipe processor type */
@@ -63,40 +69,62 @@ enum StreamType {
     AVP_STREAM_OUT = 1
 };
 
-class Stream: public std::queue<StreamPackage>{
+class Stream: public std::deque<StreamPacket>{
+    std::mutex consumeMutex;
 public:
     std::string name;
     int numConsume;
     Stream(): numConsume(0) {}
     Stream(std::string s_name, int num_consume=0): name(s_name), numConsume(num_consume)
     {}
-    //@TODO: Consume + while(!queue.empty())...
-    void Consume()
+    void LoadPacket(StreamPacket& packet) 
     {
-        if(numConsume)
+        packet.numConsume = numConsume;
+        push_back(packet);
+    }
+    //@TODO: Consume + while(!queue.empty())...
+    void ReleasePacket(iterator& it)
+    {
+        std::lock_guard<std::mutex> guard(consumeMutex);
+        it->numConsume--;
+        if(!it->numConsume&&it==begin())
         {
-            numConsume--;
-        }
-        if(!numConsume)
-        {
-            pop();
+            pop_front();
         }
     }
+    void ReleasePacket()
+    {
+        auto it = begin();
+        std::lock_guard<std::mutex> guard(consumeMutex);
+        it->numConsume--;
+        if(!it->numConsume)
+            pop_front();
+    }
 };
+
+#define MAX_TIME_ROUND 100000000
 
 class PipeProcessor{
 public:
     std::string name;
     // @TODO: vector or map ?
     std::vector<Stream*> inStreams, outStreams;
+    std::vector<Stream::iterator> inIterators, outInterators;
     PPType procType;
-    PipeProcessor(std::string pp_name, PPType pp_type): name(pp_name), procType(pp_type)
+    int timeTick;
+    PipeProcessor(std::string pp_name, PPType pp_type): name(pp_name), procType(pp_type), timeTick(-1)
     {}
+    void AddTick() {
+        timeTick = (timeTick + 1) % MAX_TIME_ROUND;
+    }
     virtual void Process() {}
     virtual void BindStream(Stream* stream_ptr, StreamType stream_type) 
     {
         if(stream_type==AVP_STREAM_IN)
+        {
             inStreams.push_back(stream_ptr);
+            stream_ptr->numConsume++;
+        }
         else if(stream_type==AVP_STREAM_OUT)
             outStreams.push_back(stream_ptr);
     }
