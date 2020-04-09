@@ -20,7 +20,7 @@ int main()
         CNN.BindStream(&inStream, avp::AVP_STREAM_IN);
         CNN.BindStream(&outStream, avp::AVP_STREAM_OUT);
         std::cout<<"Load data packet\n";
-        inStream.LoadPacket(inData);
+        inStream.LoadPacket(inData); inStream.LoadPacket(endPacket);
         std::cout<<"Start Processing\n";
         CNN.Process();
         std::cout<<"Finish Processing\n    Output Sizes:";
@@ -38,7 +38,7 @@ int main()
         CNN.BindStream(&inStream, avp::AVP_STREAM_IN);
         CNN.BindStream(&outStream, avp::AVP_STREAM_OUT);
         std::cout<<"Load data packet\n";
-        inStream.LoadPacket(inData);
+        inStream.LoadPacket(inData); inStream.LoadPacket(endPacket);
         std::cout<<"Start Processing\n";
         CNN.Process();
         std::cout<<"Finish Processing\n    Output Sizes:";
@@ -56,7 +56,7 @@ int main()
         CNN.BindStream(&inStream, avp::AVP_STREAM_IN);
         CNN.BindStream(&outStream, avp::AVP_STREAM_OUT);
         std::cout<<"Load data packet\n";
-        inStream.LoadPacket(inData);
+        inStream.LoadPacket(inData); inStream.LoadPacket(endPacket);
         std::cout<<"Start Processing\n";
         CNN.Process();
         std::cout<<"Finish Processing\n    Output Sizes:";

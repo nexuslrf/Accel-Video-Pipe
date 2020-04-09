@@ -109,7 +109,7 @@ public:
     std::string name;
     // @TODO: vector or map ?
     std::vector<Stream*> inStreams, outStreams;
-    std::vector<Stream::iterator> inIterators, outInterators;
+    std::vector<Stream::iterator> iterators;
     PPType procType;
     int timeTick;
     PipeProcessor(std::string pp_name, PPType pp_type): name(pp_name), procType(pp_type), timeTick(-1)
