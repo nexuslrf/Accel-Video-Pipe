@@ -48,7 +48,10 @@ public:
         {
             auto in_data = inStreams[0]->front();
             if(in_data.empty())
+            {
+                inStreams[0]->ReleasePacket();
                 break;
+            }
             if(in_data.timestamp==timeTick)
                 continue;
             else
@@ -91,7 +94,10 @@ public:
             
             auto in_data = *iterators[0];
             if(in_data.empty())
+            {
+                inStreams[0]->ReleasePacket(iterators[0]);
                 break;
+            }
             if(in_data.timestamp==timeTick)
                 continue;
             else

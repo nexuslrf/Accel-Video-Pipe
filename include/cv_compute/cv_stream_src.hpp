@@ -2,7 +2,6 @@
 
 #include <opencv2/opencv.hpp>
 #include "../avpipe/base.hpp"
-#include "../avpipe/cvmat_package.hpp"
 
 namespace avp {
 
@@ -27,8 +26,7 @@ public:
         checkStream();
         StreamPacket out_data(AVP_MAT, timeTick);
         AddTick();
-        cap>>frame;
-        out_data.mat = frame;
+        cap>>out_data.mat;
         outStreams[0]->LoadPacket(out_data);
     }
 };

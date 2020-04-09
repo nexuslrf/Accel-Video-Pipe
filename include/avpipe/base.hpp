@@ -37,7 +37,7 @@ public:
         tensor(tensor_data), timestamp(tensor_timestamp), numConsume(0), dataType(AVP_TENSOR) {}
     StreamPacket(Mat& mat_data, int mat_timestamp=-1):
         mat(mat_data), timestamp(mat_timestamp), numConsume(0), dataType(AVP_MAT) {}
-    bool empty(PackType data_type=AVP_TENSOR)
+    bool empty()
     {
         if(data_type==AVP_TENSOR)
             return tensor.numel() == 0;
