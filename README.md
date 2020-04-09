@@ -2,37 +2,48 @@ AV Pipe :-)
 
 ## AV-Pipe Roadmap
 
-* [x] Packaging NN inference engine, into universal API
+**TODO:** lower-case the func name.
 
-  * [x] ONNX RT
-  * [x] OpenVINO
-  * [x] LibTorch
-  * [ ] Cloud API
-
-  TODO: 
-
-  * multi-input/output optimization
-  * **Processors** need a time indicator to allow repeative consuming
-
-* [ ] Build Stream Package Struct/Class
+* [ ] Build Stream Packet Struct/Class
 
   * [x] torch::Tensor
   * [x] cv::Mat
-* [ ] Mat <-> Tensor
+  * [ ] Mat <-> Tensor
   * Attention to Sync problem
 
-* [ ] CV vision transformation
+* [ ] Processing Components
 
-  * Stream-generator
-    * [ ] Video file
-    * [ ] Webcam
+  Three major func:
 
-  * Pre-processing
-    * [ ] Normalization
-    * [ ] Layout Transfromation
-    * [ ] Rotation & Crop
-  * Post-processing
-    * [ ] Rendering
+  * initialization
+  * Stream binding
+  * Processing
+    * **Note:** right now each call **only Process one** packet.
+  * (WIP) Combine/operator+
+
+  * [x] Packaging NN inference engine, into universal API
+
+    * [x] ONNX RT
+    * [x] OpenVINO
+    * [x] LibTorch
+    * [ ] Cloud API
+
+    TODO: 
+
+    * multi-input/output optimization
+    * **Processors** need a time indicator to allow repeative consuming
+
+  * [ ] CV vision transformations
+
+    * [ ] Stream-generator
+      * [ ] Video file
+      * [ ] Webcam
+    * [ ] Pre-processing
+      * [ ] Normalization
+      * [ ] Layout Transfromation
+      * [ ] Rotation & Crop
+    * [ ] Post-processing
+      * [ ] Rendering
 
 
 * [ ] YAML representation of Pipeline

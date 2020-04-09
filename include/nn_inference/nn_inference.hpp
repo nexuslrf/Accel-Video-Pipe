@@ -42,11 +42,7 @@ public:
     virtual void Infer(StreamPacket& in_data, StreamPacket& out_data) = 0;
     void Process()
     {
-        if(inStreams.empty()||outStreams.empty())
-        {
-            std::cerr<<"Streams are empty!\n";
-            exit(0);
-        }
+        checkStream();
         // @TODO: disentangle while loop in the future!
         while(!inStreams[0]->empty())
         {
@@ -66,11 +62,7 @@ public:
     }
     void ProcessAsync()
     {
-        if(inStreams.empty()||outStreams.empty())
-        {
-            std::cerr<<"Streams are empty!\n";
-            exit(0);
-        }
+        checkStream();
         // @TODO: disentangle while loop in the future!
         bool first_loop = true;
         Stream::iterator next_itr;

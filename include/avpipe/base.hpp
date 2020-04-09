@@ -19,6 +19,7 @@ namespace avp {
 using SizeVector = std::vector<size_t>;
 using Tensor = torch::Tensor;
 using Mat = cv::Mat;
+using string = std::string;
 
 enum PackType {
     AVP_MAT = 0,
@@ -127,6 +128,15 @@ public:
         }
         else if(stream_type==AVP_STREAM_OUT)
             outStreams.push_back(stream_ptr);
+    }
+    void checkStream()
+    {
+        // @TODO: Not sufficient!
+        if(inStreams.empty()&&outStreams.empty())
+        {
+            std::cerr<<"[ERROR] Streams are empty!\n";
+            exit(0);
+        }
     }
     // virtual void Stop() = 0;
 };

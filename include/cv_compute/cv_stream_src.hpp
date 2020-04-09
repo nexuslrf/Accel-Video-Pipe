@@ -11,28 +11,25 @@ enum SRC_MODE {
     WEB_CAM = 1
 };
 
-class StreamSrcProcessor: public PipeProcessor<Mat> {
+class StreamSrcProcessor: public PipeProcessor {
     SRC_MODE srcType;
+    Mat frame;
 public:
     cv::VideoCapture cap;
     int rawWidth, rawHeight, fps;
-    StreamSrcProcessor(std::string pp_name, SRC_MODE src_type): PipeProcessor<Mat>(pp_name, STREAM_INIT)
+    StreamSrcProcessor(std::string pp_name, SRC_MODE src_type): PipeProcessor(pp_name, STREAM_INIT)
     {
         srcType = src_type;
-    }
-    void BindStream()
-    {
-        
+        timeTick = 0;
     }
     void Process()
     {
-        Mat frame;
+        checkStream();
+        StreamPacket out_data(AVP_MAT, timeTick);
+        AddTick();
         cap>>frame;
-        if(frame.empty())
-        {
-            cv::waitKey();
-            // empty 
-        }
+        out_data.mat = frame;
+        outStreams[0]->LoadPacket(out_data);
     }
 };
 
