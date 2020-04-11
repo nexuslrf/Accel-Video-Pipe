@@ -16,19 +16,18 @@ class StreamSrcProcessor: public PipeProcessor {
 public:
     cv::VideoCapture cap;
     int rawWidth, rawHeight, fps;
-    StreamSrcProcessor(std::string pp_name, SRC_MODE src_type): PipeProcessor(pp_name, STREAM_INIT)
+    StreamSrcProcessor(std::string pp_name, SRC_MODE src_type): PipeProcessor(0, 1, AVP_MAT, pp_name, STREAM_INIT)
     {
         srcType = src_type;
         timeTick = 0;
     }
-    void Process()
+
+    void run(DataList& in_data_list, DataList& out_data_list)
     {
-        checkStream();
-        StreamPacket out_data(AVP_MAT, timeTick);
-        AddTick();
-        cap>>out_data.mat;
-        outStreams[0]->LoadPacket(out_data);
+        cap>>out_data_list[0].mat;
+        addTick();
     }
+
 };
 
 class VideoFileProcessor: public StreamSrcProcessor {

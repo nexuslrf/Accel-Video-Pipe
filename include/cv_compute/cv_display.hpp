@@ -8,23 +8,12 @@ public:
     int waitTime;
     string showName;
     StreamShowProcessor(int wait_time=1, string show_name="", string pp_name=""): 
-        PipeProcessor(pp_name, STREAM_SINK), waitTime(wait_time), showName(show_name) {}
-    void Process()
+        PipeProcessor(1, 0, AVP_MAT, pp_name, STREAM_SINK), waitTime(wait_time), showName(show_name) {}
+    void run(DataList& in_data_list, DataList& out_data_list)
     {
-        checkStream();
-        auto in_data = inStreams[0]->front();
-        if(in_data.empty())
-        {
-            inStreams[0]->ReleasePacket();
-            return;
-        } 
-        if(in_data.timestamp==timeTick)
-            return;
-        else
-            timeTick = in_data.timestamp;
-        cv::imshow(showName, in_data.mat);
+        std::cout<<"Run Show: "<<in_data_list.front().mat.empty()<<std::endl;
+        cv::imshow(showName, in_data_list[0].mat);
         cv::waitKey(waitTime);
-        inStreams[0]->ReleasePacket();
     }
 };
 

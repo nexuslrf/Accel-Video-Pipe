@@ -15,7 +15,7 @@ public:
         torch::NoGradGuard no_grad;
         model = torch::jit::load(model_path);
     }
-    void Infer(StreamPacket& in_data, StreamPacket& out_data)
+    void infer(StreamPacket& in_data, StreamPacket& out_data)
     {
         torch::NoGradGuard no_grad;
         inputs.push_back(in_data.tensor);

@@ -2,7 +2,10 @@ AV Pipe :-)
 
 ## AV-Pipe Roadmap
 
-**TODO:** lower-case the func name.
+**TODO:** 
+
+* lower-case the func name.
+* don't think about *async iterator* right now!
 
 * [ ] Build Stream Packet Struct/Class
 
@@ -18,30 +21,32 @@ AV Pipe :-)
   * initialization
   * Stream binding
   * Processing
+    
     * **Note:** right now each call **only Process one** packet.
-  * (WIP) Combine/operator+
-
-  * [x] Packaging NN inference engine, into universal API
-
+* (WIP) Combine/operator+
+  
+* [x] Packaging NN inference engine, into universal API
+  
     * [x] ONNX RT
     * [x] OpenVINO
     * [x] LibTorch
-    * [ ] Cloud API
-
-    TODO: 
-
+  * [ ] Cloud API
+  
+  TODO: 
+  
     * multi-input/output optimization
-    * **Processors** need a time indicator to allow repeative consuming
-
-  * [ ] CV vision transformations
-
-    * [ ] Stream-generator
-      * [ ] Video file
-      * [ ] Webcam
+  * **Processors** need a time indicator to allow repeative consuming
+  
+* [ ] CV vision transformations
+  
+    * [x] Stream-generator
+      * [x] Video file
+      * [x] Webcam
     * [ ] Pre-processing
       * [ ] Normalization
       * [ ] Layout Transfromation
-      * [ ] Rotation & Crop
+      * [ ] Rotation
+      * [ ] Crop
     * [ ] Post-processing
       * [ ] Rendering
 

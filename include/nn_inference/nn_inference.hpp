@@ -30,7 +30,7 @@ public:
     IEType ieType;
     DataLayout dataLayout;
     NNProcessor(SizeVector dims, IEType ie_type, DataLayout data_layout,
-                std::string pp_name): PipeProcessor(pp_name, STREAM_PROC)
+                std::string pp_name): PipeProcessor(1, 1, AVP_TENSOR, pp_name, STREAM_PROC)
     {
         batchSize = dims[0];
         channels = dims[1];
@@ -39,8 +39,33 @@ public:
         ieType = ie_type;
         dataLayout = data_layout;
     }
-    virtual void Infer(StreamPacket& in_data, StreamPacket& out_data) = 0;
-    void Process()
+    virtual void infer(StreamPacket& in_data, StreamPacket& out_data) = 0;
+    void run(DataList& in_data_list, DataList& out_data_list)
+    {
+        infer(in_data_list[0], out_data_list[0]);
+    }
+    void process_Deprecated()
+    {
+        checkStream();
+        if(inStreams[0]->empty())
+            return;
+        auto in_data = inStreams[0]->front();
+        StreamPacket out_data(AVP_TENSOR, in_data.timestamp);
+        if(in_data.empty())
+        {
+            inStreams[0]->releasePacket();
+            outStreams[0]->loadPacket(out_data);
+            return;
+        }
+        if(in_data.timestamp==timeTick)
+            return;
+        else
+            timeTick = in_data.timestamp;
+        infer(in_data, out_data);
+        outStreams[0]->loadPacket(out_data);
+        inStreams[0]->releasePacket();
+    }
+    void process_()
     {
         checkStream();
         // @TODO: disentangle while loop in the future!
@@ -49,7 +74,7 @@ public:
             auto in_data = inStreams[0]->front();
             if(in_data.empty())
             {
-                inStreams[0]->ReleasePacket();
+                inStreams[0]->releasePacket();
                 break;
             }
             if(in_data.timestamp==timeTick)
@@ -57,13 +82,13 @@ public:
             else
                 timeTick = in_data.timestamp;
             StreamPacket out_data(AVP_TENSOR, timeTick);
-            AddTick();
-            Infer(in_data, out_data);
-            outStreams[0]->LoadPacket(out_data);
-            inStreams[0]->ReleasePacket();
+            addTick();
+            infer(in_data, out_data);
+            outStreams[0]->loadPacket(out_data);
+            inStreams[0]->releasePacket();
         }
     }
-    void ProcessAsync()
+    void processAsync()
     {
         checkStream();
         // @TODO: disentangle while loop in the future!
@@ -95,7 +120,7 @@ public:
             auto in_data = *iterators[0];
             if(in_data.empty())
             {
-                inStreams[0]->ReleasePacket(iterators[0]);
+                inStreams[0]->releasePacket(iterators[0]);
                 break;
             }
             if(in_data.timestamp==timeTick)
@@ -104,11 +129,11 @@ public:
                 timeTick = in_data.timestamp;
 
             StreamPacket out_data(AVP_TENSOR, timeTick);
-            AddTick();
-            Infer(in_data, out_data);
-            outStreams[0]->LoadPacket(out_data);
+            addTick();
+            infer(in_data, out_data);
+            outStreams[0]->loadPacket(out_data);
             next_itr = iterators[0]+1;
-            inStreams[0]->ReleasePacket(iterators[0]);
+            inStreams[0]->releasePacket(iterators[0]);
         }
     }
 

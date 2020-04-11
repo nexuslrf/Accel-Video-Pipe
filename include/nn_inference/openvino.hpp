@@ -30,7 +30,7 @@ public:
         tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32, dims,
                                         InferenceEngine::Layout::NCHW);
     } 
-    void Infer(StreamPacket& in_data, StreamPacket& out_data)
+    void infer(StreamPacket& in_data, StreamPacket& out_data)
     {
         InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, 
             (float_t*)in_data.data_ptr());

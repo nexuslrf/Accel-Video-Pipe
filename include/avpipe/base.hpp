@@ -39,9 +39,9 @@ public:
         mat(mat_data), timestamp(mat_timestamp), numConsume(0), dataType(AVP_MAT) {}
     bool empty()
     {
-        if(data_type==AVP_TENSOR)
+        if(dataType==AVP_TENSOR)
             return tensor.numel() == 0;
-        else if(data_type==AVP_MAT)
+        else if(dataType==AVP_MAT)
             return mat.empty();
         else
             return true;
@@ -78,13 +78,13 @@ public:
     Stream(): numConsume(0) {}
     Stream(std::string s_name, int num_consume=0): name(s_name), numConsume(num_consume)
     {}
-    void LoadPacket(StreamPacket& packet) 
+    void loadPacket(StreamPacket& packet) 
     {
         packet.numConsume = numConsume;
         push_back(packet);
     }
     //@TODO: Consume + while(!queue.empty())...
-    void ReleasePacket(iterator& it)
+    void releasePacket(iterator& it)
     {
         std::lock_guard<std::mutex> guard(consumeMutex);
         it->numConsume--;
@@ -93,7 +93,7 @@ public:
             pop_front();
         }
     }
-    void ReleasePacket()
+    void releasePacket()
     {
         auto it = begin();
         std::lock_guard<std::mutex> guard(consumeMutex);
@@ -103,7 +103,8 @@ public:
     }
 };
 
-#define MAX_TIME_ROUND 100000000
+const int MAX_TIME_ROUND = 100000000;
+using DataList = std::vector<StreamPacket>;
 
 class PipeProcessor{
 public:
@@ -112,22 +113,93 @@ public:
     std::vector<Stream*> inStreams, outStreams;
     std::vector<Stream::iterator> iterators;
     PPType procType;
+    PackType dataType;
+    size_t numInStreams, numOutStreams;
     int timeTick;
-    PipeProcessor(std::string pp_name, PPType pp_type): name(pp_name), procType(pp_type), timeTick(-1)
+    PipeProcessor(int num_instreams, int num_outstreams, PackType data_type, std::string pp_name, PPType pp_type): name(pp_name), 
+        procType(pp_type), dataType(data_type), numInStreams(num_instreams), numOutStreams(num_outstreams), timeTick(-1)
     {}
-    void AddTick() {
+    void addTick() {
         timeTick = (timeTick + 1) % MAX_TIME_ROUND;
     }
-    virtual void Process() {}
-    virtual void BindStream(Stream* stream_ptr, StreamType stream_type) 
+    virtual void run(DataList& in_data_list, DataList& out_data_list) {}
+    virtual void process() 
+    {
+        checkStream();
+        DataList in_data_list, out_data_list;
+        bool finish = false;
+        size_t i;
+        for(i=0; i<numInStreams; i++)
+        {
+            // @TODO: you may need to think about time sync here! 
+            // Right now just assume all streams are coherent.
+            if(inStreams[i]->empty())
+                return;
+            auto in_data = inStreams[i]->front();
+            if(i==0)
+            {
+                int tmp_time = in_data.timestamp;
+                if(tmp_time==timeTick)
+                    return;
+                else
+                    timeTick = tmp_time;
+            }
+
+            if(in_data.empty()||finish)
+            {
+                std::cout<<"x0\n";
+                finish = true;
+                inStreams[i]->releasePacket();
+            }
+            else
+                in_data_list.push_back(in_data);
+        }
+        std::cout<<"x1\n";
+        for(i=0; i<numOutStreams; i++)
+        {
+            StreamPacket out_data(dataType, timeTick);
+            if(finish)
+            {
+                outStreams[i]->loadPacket(out_data);
+            }
+            else
+            {
+                out_data_list.push_back(out_data);
+            }
+            
+        }
+        
+        if(finish)
+            return;
+        
+        run(in_data_list, out_data_list);
+
+        for(i=0; i<numOutStreams; i++)
+            outStreams[i]->loadPacket(out_data_list[i]);
+        for(i=0; i<numInStreams; i++)
+            inStreams[i]->releasePacket();
+    }
+    virtual void bindStream(Stream* stream_ptr, StreamType stream_type) 
     {
         if(stream_type==AVP_STREAM_IN)
         {
+            if(inStreams.size()==numInStreams)
+            {
+                std::cerr<<"[ERROR] Number of inStreams exceeds limit.\n";
+                exit(0);
+            }
             inStreams.push_back(stream_ptr);
             stream_ptr->numConsume++;
         }
         else if(stream_type==AVP_STREAM_OUT)
+        {
+            if(outStreams.size()==numOutStreams)
+            {
+                std::cerr<<"[ERROR] Number of outStreams exceeds limit.\n";
+                exit(0);
+            }
             outStreams.push_back(stream_ptr);
+        }
     }
     void checkStream()
     {
