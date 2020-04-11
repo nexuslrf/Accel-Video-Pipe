@@ -46,6 +46,13 @@ public:
         else
             return true;
     }
+    bool empty(PackType data_type)
+    {
+        if(data_type==AVP_TENSOR)
+            return tensor.numel() == 0;
+        else if(data_type==AVP_MAT)
+            return mat.empty();
+    }
     void* data_ptr()
     {
         if(dataType==AVP_MAT)
@@ -55,8 +62,44 @@ public:
         return NULL;
     }
 
-    // Mat getMat(){}
-    // Tensor getTensor(){}
+    Mat& matData()
+    {
+        if(dataType==AVP_MAT)
+            return mat;
+        else
+        {   // tensor to mat
+            if(!mat.empty()||tensor.numel()==0)
+                return mat;
+            else
+            {
+                // @TODO: must ensure mat.type()==CV_32FC3
+                // tensor's data layout must be HWC rather than CHW.
+                // ignore type checking here...
+                // TensorToMat is not that common compared to MatToTensor...
+                mat = cv::Mat(tensor.size(0), tensor.size(1), CV_32FC3, tensor.data_ptr());
+                return mat;
+            }
+            
+        }
+    }
+    Tensor& tensorData()
+    {
+        if(dataType==AVP_TENSOR)
+            return tensor;
+        else
+        {   // mat to tensor, no memcpy
+            if(mat.empty()||tensor.numel()!=0)
+                return tensor;
+            else
+            {
+                // @TODO: must ensure mat.type()==CV_32FC3
+                // ignore type checking here...
+                tensor = torch::from_blob(mat.data, {mat.rows, mat.cols, 3}, torch::kFloat32);
+                return tensor;
+            }
+            
+        }
+    }
 };
 
 /*! pipe processor type */

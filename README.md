@@ -4,7 +4,6 @@ AV Pipe :-)
 
 **TODO:** 
 
-* lower-case the func name.
 * don't think about *async iterator* right now!
 
 * [ ] Build Stream Packet Struct/Class
@@ -43,10 +42,10 @@ AV Pipe :-)
       * [x] Video file
       * [x] Webcam
     * [ ] Pre-processing
-      * [ ] Normalization
+      * [x] Normalization
       * [ ] Layout Transfromation
       * [ ] Rotation
-      * [ ] Crop
+      * [x] Crop
     * [ ] Post-processing
       * [ ] Rendering
 

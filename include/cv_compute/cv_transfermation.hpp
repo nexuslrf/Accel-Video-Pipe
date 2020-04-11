@@ -39,8 +39,24 @@ public:
     }
 };
 
-// class ImgNormalization: public PipeProcessor {
-
-// };
+class ImgNormalization: public PipeProcessor {
+    cv::Scalar mean, stdev;
+public:
+    ImgNormalization(cv::Scalar mean_var, cv::Scalar stdev_var, std::string pp_name=""): PipeProcessor(1,1, AVP_MAT, pp_name, STREAM_PROC),
+        mean(mean_var), stdev(stdev_var)
+    {} 
+    ImgNormalization(float mean_var=0.5, float stdev_var=0.5, std::string pp_name=""): PipeProcessor(1,1, AVP_MAT, pp_name, STREAM_PROC)
+    {
+        mean = {mean_var, mean_var, mean_var};
+        stdev = {stdev_var, stdev_var, stdev_var};
+    } 
+    void run(DataList& in_data_list, DataList& out_data_list)
+    {
+        cv::Mat tmp_frame;
+        cv::cvtColor(in_data_list[0].mat, tmp_frame, cv::COLOR_BGR2RGB);
+        tmp_frame.convertTo(tmp_frame, CV_32F);
+        out_data_list[0].mat = (tmp_frame / 255.0 - mean) / stdev;
+    }
+};
 
 }
