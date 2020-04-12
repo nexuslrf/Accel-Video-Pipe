@@ -65,8 +65,8 @@ int main()
     inputs.push_back(modelInput);
     // libTorch models
     torch::jit::script::Module model, gaussianModulation;
-    model = torch::jit::load("../../CV_Models/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192.zip");
-    gaussianModulation = torch::jit::load("../../CV_Models/HRNet-Human-Pose-Estimation/gaussian_modulation.zip");
+    model = torch::jit::load("/Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192.zip");
+    gaussianModulation = torch::jit::load("/Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/gaussian_modulation.zip");
 
     /* Read source data */
 //     
@@ -75,7 +75,7 @@ int main()
 //     else
 //         cap.open(parser.get<int>("device"));
 // */ 
-    cap.open("../kunkun_nmsl.mp4");
+    cap.open("/Users/liangruofan1/Program/Accel-Video-Pipe/test_data/kunkun_nmsl.mp4");
 //     // cap.open(0);
 //     // cap.set(CAP_PROP_FPS, 20);
     fps = cap.get(cv::CAP_PROP_FPS);

@@ -29,14 +29,14 @@ class StreamPacket{
 public:
     Mat mat;
     Tensor tensor;
-    int timestamp;
-    int numConsume;
+    int timestamp, numConsume, batchSize;
     PackType dataType;
-    StreamPacket(PackType data_type=AVP_TENSOR, int init_timestamp=-1): timestamp(init_timestamp), numConsume(0), dataType(data_type) {}
+    StreamPacket(PackType data_type=AVP_TENSOR, int init_timestamp=-1): timestamp(init_timestamp), numConsume(0), 
+        batchSize(1), dataType(data_type) {}
     StreamPacket(Tensor& tensor_data, int tensor_timestamp=-1): 
-        tensor(tensor_data), timestamp(tensor_timestamp), numConsume(0), dataType(AVP_TENSOR) {}
+        tensor(tensor_data), timestamp(tensor_timestamp), numConsume(0), batchSize(1), dataType(AVP_TENSOR) {}
     StreamPacket(Mat& mat_data, int mat_timestamp=-1):
-        mat(mat_data), timestamp(mat_timestamp), numConsume(0), dataType(AVP_MAT) {}
+        mat(mat_data), timestamp(mat_timestamp), numConsume(0), batchSize(1), dataType(AVP_MAT) {}
     bool empty()
     {
         if(dataType==AVP_TENSOR)
@@ -52,6 +52,7 @@ public:
             return tensor.numel() == 0;
         else if(data_type==AVP_MAT)
             return mat.empty();
+        return true;
     }
     void* data_ptr()
     {
@@ -156,7 +157,7 @@ public:
     std::vector<Stream*> inStreams, outStreams;
     std::vector<Stream::iterator> iterators;
     PPType procType;
-    PackType dataType;
+    PackType dataType; // only used for output data type
     size_t numInStreams, numOutStreams;
     int timeTick;
     PipeProcessor(int num_instreams, int num_outstreams, PackType data_type, std::string pp_name, PPType pp_type): name(pp_name), 
@@ -190,14 +191,12 @@ public:
 
             if(in_data.empty()||finish)
             {
-                std::cout<<"x0\n";
                 finish = true;
                 inStreams[i]->releasePacket();
             }
             else
                 in_data_list.push_back(in_data);
         }
-        std::cout<<"x1\n";
         for(i=0; i<numOutStreams; i++)
         {
             StreamPacket out_data(dataType, timeTick);

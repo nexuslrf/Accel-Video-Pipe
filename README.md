@@ -10,7 +10,7 @@ AV Pipe :-)
 
   * [x] torch::Tensor
   * [x] cv::Mat
-  * [ ] Mat <-> Tensor
+  * [x] Mat <-> Tensor
   * Attention to Sync problem
 
 * [ ] Processing Components

@@ -1,7 +1,7 @@
 #include <iostream>
-#include <nn_inference/libtorch.hpp>
-#include <nn_inference/openvino.hpp>
-#include <nn_inference/onnx_runtime.hpp>
+#include <tensor_compute/libtorch.hpp>
+#include <tensor_compute/openvino.hpp>
+#include <tensor_compute/onnx_runtime.hpp>
 #include <avpipe/base.hpp>
 
 int main()
