@@ -7,8 +7,15 @@ namespace avp {
 // For HRNet Pose estimation
 class LandMarkMaxPred: public PipeProcessor {
 public:
-    LandMarkMaxPred(std::string pp_name=""): PipeProcessor(1, 1, AVP_TENSOR, pp_name, STREAM_PROC)
-    {}
+    bool outputProb;
+    LandMarkMaxPred(bool output_prob = true, std::string pp_name=""): 
+        PipeProcessor(1, 2, AVP_TENSOR, pp_name, STREAM_PROC), outputProb(output_prob)
+    {
+        if(!outputProb)
+        {
+            numOutStreams = 1;
+        }   
+    }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         auto heatmaps = in_data_list[0].tensor;
@@ -22,6 +29,8 @@ public:
         preds.mul_(predMusk);
         // probs.copy_(maxvals);
         out_data_list[0].tensor = preds;
+        if(outputProb)
+            out_data_list[1].tensor = maxvals.squeeze(-1);
     }
 };
 
@@ -58,6 +67,8 @@ public:
                         (map_a[i][j][y+1][x] * map_a[i][j][y+1][x] * map_a[i][j][y+1][x+1] * map_a[i][j][y+1][x-1]) / 
                         (map_a[i][j][y-1][x] * map_a[i][j][y-1][x] * map_a[i][j][y-1][x+1] * map_a[i][j][y-1][x-1])
                     ) * d2;
+                    d1_x = fmax(d1_x, -1);
+                    d1_y = fmax(d1_y, -1);
                     keyPoints[i][j][0] = x + d1_x;
                     keyPoints[i][j][1] = y + d1_y;
                 }

@@ -1,5 +1,24 @@
 AV Pipe :-)
 
+## The Structure of Accel-Video-Pipe
+
+Namespace: `avp`
+
+Base Classes (in `avpipe/base.hpp`):
+
+* `StreamPacket`: to store temporal data to be processed;
+  * `mat`: `cv::Mat` type, used for opencv-related operations/computations;
+  * `tensor`: `aT::Tensor` type (maybe the most friendly C++ tensor type), used for DNN-related operations.
+
+* `Stream`: a queue of `StreamPacket`. support synchronized, atomic queue operations.
+
+* `PipeProcessor`: the actual computing module; 
+  * `init`: for initialization
+  * `process`: a universal procedure for each computing module:
+    * take `StreamPacket` from `inStreams`, prepare the `StreamPacket` for `outStreams`.
+  * `run`: a virtual function must be implemented by different modules.
+  * `bindStream`: used to bind `Stream` to the `PipeProcessor`. 
+
 ## AV-Pipe Roadmap
 
 **TODO:** 
