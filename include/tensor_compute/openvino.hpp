@@ -16,8 +16,8 @@ class OpenVinoProcessor: public NNProcessor {
     InferenceEngine::ExecutableNetwork executableNN;
     std::string inputName, outputName;
 public:
-    OpenVinoProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, 
-        std::string pp_name = ""): NNProcessor(dims, OPENVINO, data_layout, pp_name)  
+    OpenVinoProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, int num_output=1,
+        std::string pp_name = ""): NNProcessor(dims, OPENVINO, data_layout, num_output, pp_name)  
     {
         std::string model_xml = model_path+".xml";
         std::string model_bin = model_path+".bin";

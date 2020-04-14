@@ -29,7 +29,7 @@ public:
     size_t channels;
     IEType ieType;
     DataLayout dataLayout;
-    NNProcessor(SizeVector dims, IEType ie_type, DataLayout data_layout,
+    NNProcessor(SizeVector dims, IEType ie_type, DataLayout data_layout, int num_output,
                 std::string pp_name): PipeProcessor(1, 1, AVP_TENSOR, pp_name, STREAM_PROC)
     {
         batchSize = dims[0];
@@ -39,7 +39,9 @@ public:
         ieType = ie_type;
         dataLayout = data_layout;
     }
+
     virtual void infer(StreamPacket& in_data, StreamPacket& out_data) = 0;
+
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         infer(in_data_list[0], out_data_list[0]);

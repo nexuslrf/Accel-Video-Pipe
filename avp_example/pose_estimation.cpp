@@ -1,15 +1,8 @@
 #include <iostream>
-#include <tensor_compute/libtorch.hpp>
-#include <tensor_compute/openvino.hpp>
-#include <tensor_compute/onnx_runtime.hpp>
-#include <cv_compute/cv_stream_src.hpp>
-#include <cv_compute/cv_display.hpp>
-#include <cv_compute/cv_transfermation.hpp>
-#include <tensor_compute/tensor_utils.hpp>
-#include <tensor_compute/det_postprocess.hpp>
-#include <cv_compute/cv_rendering.hpp>
-#include <cv_compute/cv_stream_src.hpp>
+#include <avpipe/tensor_compute.hpp>
+#include <avpipe/cv_compute.hpp>
 #include <avpipe/base.hpp>
+#include <tensor_compute/det_postprocess.hpp>
 
 int main()
 {
@@ -62,10 +55,11 @@ int main()
 
     // avp::StreamPacket inData(rawFrame, 0);
     // pipe[0].loadPacket(inData);
-
-    while(1)
+    bool empty = false;
+    while(!empty)
     {
         videoSrc.process();
+        empty = pipe[0].empty();
         // std::cout<<"video pass\n";
         crop.process();
         // std::cout<<"crop pass\n";

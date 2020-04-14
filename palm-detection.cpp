@@ -184,7 +184,7 @@ int main()
         if(handMetaForward.empty())
         {
             cout<<"Palm Detection "<<fid<<endl;
-            resize(frame(ROI), inFrame, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
+            cv::resize(cropFrame, inFrame, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
             // showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
             cv::cvtColor(inFrame, inFrame, cv::COLOR_BGR2RGB);
             inFrame.convertTo(inFrame, CV_32F);

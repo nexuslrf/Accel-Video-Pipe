@@ -10,9 +10,11 @@ public:
     int srcHeight, srcWidth;
     int cropHeight, cropWidth;
     int dstHeight, dstWidth;
+    bool flip;
     cv::Rect ROI;
-    CenterCropResize(int src_height, int src_width, int dst_height, int dst_width, std::string pp_name=""): 
-        PipeProcessor(1, 1, AVP_MAT, pp_name, STREAM_PROC), srcHeight(src_height), srcWidth(src_width), dstHeight(dst_height), dstWidth(dst_width)
+    CenterCropResize(int src_height, int src_width, int dst_height, int dst_width, bool f=false, std::string pp_name=""): 
+        PipeProcessor(1, 1, AVP_MAT, pp_name, STREAM_PROC), srcHeight(src_height), srcWidth(src_width), 
+        dstHeight(dst_height), dstWidth(dst_width), flip(f)
     {
         float ratio = 1.0 * dstWidth / dstHeight;
         if (srcWidth * dstHeight > srcHeight * dstWidth)
@@ -36,6 +38,8 @@ public:
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         cv::resize(in_data_list[0].mat(ROI), out_data_list[0].mat, {dstWidth, dstHeight}, 0, 0, cv::INTER_LINEAR);
+        if(flip)
+            cv::flip(out_data_list[0].mat, out_data_list[0].mat, +1);
     }
 };
 

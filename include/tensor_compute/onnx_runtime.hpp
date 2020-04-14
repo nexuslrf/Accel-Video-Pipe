@@ -15,8 +15,8 @@ class ONNXRuntimeProcessor: public NNProcessor {
     size_t numInputNodes, numOutputNodes;
     std::vector<const char*> inputNodeNames, outputNodeNames;
 public:
-    ONNXRuntimeProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, 
-        std::string pp_name = ""): NNProcessor(dims, ONNX_RT, data_layout, pp_name), 
+    ONNXRuntimeProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, int num_output=1,
+        std::string pp_name = ""): NNProcessor(dims, ONNX_RT, data_layout, num_output, pp_name), 
         memInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)) 
     {
         inDims = std::vector<int64_t>({(int64_t)this->batchSize, (int64_t)this->channels, 
