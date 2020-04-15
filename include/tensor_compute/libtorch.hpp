@@ -15,11 +15,18 @@ public:
         torch::NoGradGuard no_grad;
         model = torch::jit::load(model_path);
     }
-    void infer(StreamPacket& in_data, StreamPacket& out_data)
+    void run(DataList& in_data_list, DataList& out_data_list)
     {
         torch::NoGradGuard no_grad;
-        inputs.push_back(in_data.tensor);
-        out_data.tensor = model.forward(inputs).toTensor();
+        inputs.push_back(in_data_list[0].tensor);
+        if(numOutStreams==1)
+            out_data_list[0].tensor = model.forward(inputs).toTensor();
+        else //if(numOutStreams>1)
+        {
+            auto outputs = model.forward(inputs).toTuple();
+            for(int i=0; i<numOutStreams; i++)
+                out_data_list[i].tensor = outputs->elements()[0].toTensor();
+        }
         inputs.pop_back();
     }
 };

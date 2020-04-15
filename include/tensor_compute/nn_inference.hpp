@@ -40,12 +40,10 @@ public:
         dataLayout = data_layout;
     }
 
-    virtual void infer(StreamPacket& in_data, StreamPacket& out_data) = 0;
 
-    void run(DataList& in_data_list, DataList& out_data_list)
-    {
-        infer(in_data_list[0], out_data_list[0]);
-    }
+    /* Below are deprecated */
+    virtual void infer(StreamPacket& in_data, StreamPacket& out_data) {};
+
     void process_Deprecated()
     {
         checkStream();

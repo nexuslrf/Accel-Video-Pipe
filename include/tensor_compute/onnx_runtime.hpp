@@ -31,8 +31,11 @@ public:
         
         inputNodeNames = std::vector<const char*>(numInputNodes);
         // Note: ensure numInputNodes == 1
-        char* input_name = sessionPtr->GetInputName(0, allocator);
-        inputNodeNames[0] = input_name;
+        for(size_t i=0; i<numInputNodes; i++)
+        {
+            char* input_name = sessionPtr->GetInputName(i, allocator);
+            inputNodeNames[i] = input_name;
+        }
         Ort::TypeInfo typeInfo = sessionPtr->GetInputTypeInfo(0);
         auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
 
@@ -47,15 +50,18 @@ public:
     {
         delete sessionPtr;
     }
-    void infer(StreamPacket& in_data, StreamPacket& out_data)
+    void run(DataList& in_data_list, DataList& out_data_list)
     {
-        Ort::Value inTensor = Ort::Value::CreateTensor<float>(memInfo, (float_t*)in_data.data_ptr(), 
+        Ort::Value inTensor = Ort::Value::CreateTensor<float>(memInfo, (float_t*)in_data_list[0].data_ptr(), 
             inputTensorSize, inDims.data(), inDims.size());
         auto outputTensors = sessionPtr->Run(Ort::RunOptions{nullptr}, inputNodeNames.data(), 
                 &inTensor, numInputNodes, outputNodeNames.data(), numOutputNodes);
-        float* rawPtr = outputTensors[0].Ort::Value::template GetTensorMutableData<float>();
-        auto outDims = outputTensors[0].GetTypeInfo().GetTensorTypeAndShapeInfo().GetShape();
-        out_data.tensor = torch::from_blob(rawPtr, {outDims[0], outDims[1], outDims[2], outDims[3]});
+        for(size_t i=0; i<numOutStreams; i++)
+        {
+            float* rawPtr = outputTensors[i].Ort::Value::template GetTensorMutableData<float>();
+            auto outDims = outputTensors[i].GetTypeInfo().GetTensorTypeAndShapeInfo().GetShape();
+            out_data_list[i].tensor = torch::from_blob(rawPtr, outDims);
+        }
     }
 };
 

@@ -41,40 +41,42 @@ Base Classes (in `avpipe/base.hpp`):
   * Processing
     
     * **Note:** right now each call **only Process one** packet.
-* (WIP) Combine/operator+
+    
+  * [ ] (WIP) Combine/operator+
+    
+  * [x] Packaging NN inference engine, into universal API
+    
+      * [x] ONNX RT
+      * [x] OpenVINO
+      * [x] LibTorch
+    * [ ] Cloud API: consider *openSSH*
+    
+    TODO: 
+    
+      * [x] multi-input/output optimization
+    * [x] **Processors** need a time indicator to allow repeative consuming
+    
+  * [ ] CV vision transformations
+    
+      * [x] Stream-generator
+        * [x] Video file
+        * [x] Webcam
+      * [ ] Pre-processing
+        * [x] Normalization
+        * [x] Layout Transfromation
+        * [ ] Rotation
+        * [x] Crop
+      * [ ] Post-processing
+        * [ ] Rendering
+          * [x] LandMarks
+          * [ ] Bounding Boxes
+      
+  * [ ] YAML representation of Pipeline
   
-* [x] Packaging NN inference engine, into universal API
+  * [ ] Code/Proc auto-generating
   
-    * [x] ONNX RT
-    * [x] OpenVINO
-    * [x] LibTorch
-  * [ ] Cloud API
-  
-  TODO: 
-  
-    * multi-input/output optimization
-  * **Processors** need a time indicator to allow repeative consuming
-  
-* [ ] CV vision transformations
-  
-    * [x] Stream-generator
-      * [x] Video file
-      * [x] Webcam
-    * [ ] Pre-processing
-      * [x] Normalization
-      * [ ] Layout Transfromation
-      * [ ] Rotation
-      * [x] Crop
-    * [ ] Post-processing
-      * [ ] Rendering
-
-
-* [ ] YAML representation of Pipeline
-
-* [ ] Code/Proc auto-generating
-
   ----- By 4.15 -----
-
+  
 * [ ] Pipeline Optimization
 
   * [ ] CPU:

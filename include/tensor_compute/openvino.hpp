@@ -14,7 +14,7 @@ class OpenVinoProcessor: public NNProcessor {
     InferenceEngine::InferRequest inferRequest;
     InferenceEngine::TensorDesc tDesc;
     InferenceEngine::ExecutableNetwork executableNN;
-    std::string inputName, outputName;
+    std::vector<std::string> inputNames, outputNames;
 public:
     OpenVinoProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, int num_output=1,
         std::string pp_name = ""): NNProcessor(dims, OPENVINO, data_layout, num_output, pp_name)  
@@ -23,26 +23,27 @@ public:
         std::string model_bin = model_path+".bin";
         network = ie.ReadNetwork(model_xml, model_bin);
         network.setBatchSize(this->batchSize);
-        inputName = network.getInputsInfo().begin()->first;
-        outputName = network.getOutputsInfo().begin()->first;
+        inputNames.push_back(network.getInputsInfo().begin()->first);
+        for(auto &pr: network.getOutputsInfo())
+            outputNames.push_back(pr.first);
         executableNN = ie.LoadNetwork(network, "CPU");
         inferRequest = executableNN.CreateInferRequest();
         tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32, dims,
                                         InferenceEngine::Layout::NCHW);
     } 
-    void infer(StreamPacket& in_data, StreamPacket& out_data)
+    void run(DataList& in_data_list, DataList& out_data_list)
     {
         InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, 
-            (float_t*)in_data.data_ptr());
-        inferRequest.SetBlob(inputName, inBlob);
+            (float_t*)in_data_list[0].data_ptr());
+        inferRequest.SetBlob(inputNames[0], inBlob);
         inferRequest.Infer();
-        InferenceEngine::Blob::Ptr outBlob = inferRequest.GetBlob(outputName);
-        auto dims = outBlob->getTensorDesc().getDims();
-        int out_batchSize = dims[0], out_channels = dims[1], 
-            out_height = dims[2], out_width = dims[3];
-        out_data.tensor = torch::from_blob(outBlob->buffer().as<float*>(), 
-            {out_batchSize, out_channels, out_height, out_width});
-        // outBlob.get();
+        for(size_t i=0; i<numOutStreams; i++)
+        {
+            InferenceEngine::Blob::Ptr outBlob = inferRequest.GetBlob(outputNames[i]);
+            auto dims_tmp = outBlob->getTensorDesc().getDims();
+            std::vector<int64_t> dims(dims_tmp.begin(), dims_tmp.end());
+            out_data_list[i].tensor = torch::from_blob(outBlob->buffer().as<float*>(), dims);
+        }
     }
 };
 }
