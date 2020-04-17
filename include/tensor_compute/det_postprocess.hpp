@@ -78,4 +78,43 @@ public:
     }
 };
 
+/* Used by hand detection tasks, 
+ * other use case: Unknown..
+ * Anchor File Format (from numpy array): 
+ *  anchors.astype('float32').tofile('anchors.bin')
+ */
+class DecodeDetBoxes: public PipeProcessor {
+public:
+    int numAnchors;
+    int dstHeight, dstWidth;
+    int numKeypoints;
+    torch::Tensor anchors;
+    DecodeDetBoxes(int num_anchors, string anchor_file, int dst_h, int dst_w, int num_keypts, string pp_name=""): 
+        PipeProcessor(1, 1, AVP_TENSOR, pp_name, STREAM_PROC), numAnchors(num_anchors), 
+        dstHeight(dst_h), dstWidth(dst_w), numKeypoints(num_keypts)
+    {
+        anchors = torch::from_file(anchor_file, NULL, numAnchors * 4 * sizeof(float));
+    }
+    void run(DataList& in_data_list, DataList& out_data_list)
+    {
+        auto rawBoxesP = in_data_list[0].tensor;
+        auto boxes = out_data_list[0].tensor;
+
+        auto x_center = rawBoxesP.slice(2,0,1) / dstWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
+        auto y_center = rawBoxesP.slice(2,1,2) / dstHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
+        
+        auto w = rawBoxesP.slice(2,2,3) / dstWidth  * anchors.slice(1,2,3);
+        auto h = rawBoxesP.slice(2,3,4) / dstHeight * anchors.slice(1,3,4);
+
+        boxes.slice(2,0,1) = y_center - h / 2; // ymin
+        boxes.slice(2,1,2) = x_center - w / 2; // xmin
+        boxes.slice(2,2,3) = y_center + h / 2; // ymax
+        boxes.slice(2,3,4) = x_center + w / 2; // xmax
+
+        int offset = 4 + numKeypoints * 2;
+        boxes.slice(2,4,offset,2) = rawBoxesP.slice(2,4,offset,2) / dstWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
+        boxes.slice(2,5,offset,2) = rawBoxesP.slice(2,5,offset,2) / dstHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
+    }
+};
+
 }

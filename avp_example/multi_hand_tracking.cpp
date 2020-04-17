@@ -16,10 +16,12 @@ int main()
     int rawHeight = rawFrame.rows;
     int rawWidth = rawFrame.cols;
     int dstHeight = 256, dstWidth = 256;
+    int numAnchors = 2944, numKeypointsPalm = 7;
 
     avp::CenterCropResize crop(rawHeight, rawWidth, dstHeight, dstWidth);
     avp::ImgNormalization normalization(0.5, 0.5);
     avp::DataLayoutConvertion matToTensor;
-    avp::ONNXRuntimeProcessor CNN({1,3,256,256}, avp::NCHW, palmModel);
+    avp::ONNXRuntimeProcessor CNN({1,3,256,256}, avp::NCHW, palmModel, 2);
+    avp::DecodeDetBoxes decodeBoxes(numAnchors, anchorFile, dstHeight, dstWidth, numKeypointsPalm);
     
 }
