@@ -48,4 +48,15 @@ public:
         out_data_list[0].mat = showFrame;
     }
 };
+
+// /* 
+//  *
+//  */
+// class DrawDetBoxes: public PipeProcessor {
+// public:
+//     int dstHeight, dstWidth;
+
+//     DrawDetBoxes();
+// };
+
 }

@@ -37,7 +37,9 @@ Base Classes (in `avpipe/base.hpp`):
   Three major func:
 
   * initialization
+  
   * Stream binding
+  
   * Processing
     
     * **Note:** right now each call **only Process one** packet.
@@ -75,8 +77,11 @@ Base Classes (in `avpipe/base.hpp`):
   
   * [ ] Code/Proc auto-generating
   
-  ----- By 4.15 -----
-  
+* [ ] Samples:
+
+  * [x] Pose Estimation
+  * [ ] Hand Tracking
+
 * [ ] Pipeline Optimization
 
   * [ ] CPU:
