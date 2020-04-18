@@ -71,7 +71,7 @@ Base Classes (in `avpipe/base.hpp`):
       * [ ] Post-processing
         * [ ] Rendering
           * [x] LandMarks
-          * [ ] Bounding Boxes
+          * [x] Bounding Boxes
       
   * [ ] YAML representation of Pipeline
   

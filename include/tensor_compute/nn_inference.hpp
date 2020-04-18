@@ -30,7 +30,7 @@ public:
     IEType ieType;
     DataLayout dataLayout;
     NNProcessor(SizeVector dims, IEType ie_type, DataLayout data_layout, int num_output,
-                std::string pp_name): PipeProcessor(1, 1, AVP_TENSOR, pp_name, STREAM_PROC)
+                std::string pp_name): PipeProcessor(1, num_output, AVP_TENSOR, pp_name, STREAM_PROC)
     {
         batchSize = dims[0];
         channels = dims[1];

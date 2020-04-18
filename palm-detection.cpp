@@ -213,8 +213,7 @@ int main()
             auto mask = detectionScores >= minScoreThrs;
             // cout<<mask.sum();
             // auto outBoxes = detectionBoxes.index(mask[0]);
-            // cout<<mask[0].sizes();
-            
+            // cout<<mask.sizes()<<"\n"<<detectionBoxes.sizes()<<"\n"<<detectionScores.sizes()<<"\n\n";
             for(int i=0; i < batchSizePalm; i++)
             {
                 auto boxes = detectionBoxes[i].index(mask[i]);
@@ -367,11 +366,12 @@ void decodeBoxes(const torch::Tensor &rawBoxesP, const torch::Tensor &anchors, t
 
 vector<torch::Tensor> weightedNMS(const torch::Tensor &detections)
 {
+    // cout<<detections.sizes()<<endl;
     vector<torch::Tensor> outDets;
     if(detections.size(0) == 0)
         return outDets;
     auto remaining = detections.slice(1,outDim, outDim+1).argsort(0, true).squeeze(-1);
-    // cout<<remaining.sizes()<<"  "<<remaining[0];
+    // cout<<remaining.sizes()<<"  "<<remaining;
     // cout<<detections[remaining[0]].sizes()<<"\n";
     // torch::Tensor IoUs;
     while (remaining.size(0)>0)

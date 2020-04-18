@@ -227,7 +227,7 @@ public:
         {
             if(inStreams.size()==numInStreams)
             {
-                std::cerr<<"[ERROR] Number of inStreams exceeds limit.\n";
+                std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of inStreams exceeds limit.\n";
                 exit(0);
             }
             inStreams.push_back(stream_ptr);
@@ -237,7 +237,7 @@ public:
         {
             if(outStreams.size()==numOutStreams)
             {
-                std::cerr<<"[ERROR] Number of outStreams exceeds limit.\n";
+                std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of outStreams exceeds limit.\n";
                 exit(0);
             }
             outStreams.push_back(stream_ptr);
@@ -248,7 +248,7 @@ public:
         // @TODO: Not sufficient!
         if(inStreams.empty()&&outStreams.empty())
         {
-            std::cerr<<"[ERROR] Streams are empty!\n";
+            std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Streams are empty!\n";
             exit(0);
         }
     }

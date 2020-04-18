@@ -88,18 +88,19 @@ public:
     int numAnchors;
     int dstHeight, dstWidth;
     int numKeypoints;
+    int outDims;
     torch::Tensor anchors;
     DecodeDetBoxes(int num_anchors, string anchor_file, int dst_h, int dst_w, int num_keypts, string pp_name=""): 
         PipeProcessor(1, 1, AVP_TENSOR, pp_name, STREAM_PROC), numAnchors(num_anchors), 
         dstHeight(dst_h), dstWidth(dst_w), numKeypoints(num_keypts)
     {
-        anchors = torch::from_file(anchor_file, NULL, numAnchors * 4 * sizeof(float));
+        anchors = torch::from_file(anchor_file, NULL, numAnchors * 4, torch::kFloat32).reshape({numAnchors, 4});
+        outDims = 4 + 2*numKeypoints;
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         auto rawBoxesP = in_data_list[0].tensor;
-        auto boxes = out_data_list[0].tensor;
-
+        auto boxes = torch::empty_like(rawBoxesP);
         auto x_center = rawBoxesP.slice(2,0,1) / dstWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
         auto y_center = rawBoxesP.slice(2,1,2) / dstHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
         
@@ -114,6 +115,7 @@ public:
         int offset = 4 + numKeypoints * 2;
         boxes.slice(2,4,offset,2) = rawBoxesP.slice(2,4,offset,2) / dstWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
         boxes.slice(2,5,offset,2) = rawBoxesP.slice(2,5,offset,2) / dstHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
+        out_data_list[0].tensor = boxes;
     }
 };
 
@@ -139,11 +141,12 @@ torch::Tensor computeIoU(const torch::Tensor &boxA, const torch::Tensor &boxB)
 
 void weightedNMS(const Tensor &detections, std::vector<Tensor>& outDets, int scoreDim, float minSuppressionThrs)
 {
+    // std::cout<<detections.sizes()<<scoreDim<<"\n";
     if(detections.size(0) == 0)
         return;
     auto remaining = detections.slice(1,scoreDim, scoreDim+1).argsort(0, true).squeeze(-1);
-    // cout<<remaining.sizes()<<"  "<<remaining[0];
-    // cout<<detections[remaining[0]].sizes()<<"\n";
+    // std::cout<<remaining.sizes()<<"\n"<<remaining<<"\n";
+    // std::cout<<detections[remaining[0]].sizes()<<"\n";
     // torch::Tensor IoUs;
     while (remaining.size(0)>0)
     {
@@ -170,7 +173,7 @@ void weightedNMS(const Tensor &detections, std::vector<Tensor>& outDets, int sco
     return;
 }
 
-void weightedNMS(const Tensor &detections, std::vector<Tensor>& outDets, int scoreDim, float minSuppressionThrs)
+void NMS(const Tensor &detections, std::vector<Tensor>& outDets, int scoreDim, float minSuppressionThrs)
 {
     if(detections.size(0) == 0)
         return;
@@ -201,44 +204,52 @@ public:
     int numKeypoints, scoreDim;
     NonMaxSuppression(int num_keypts, float clip_t=100.0, float score_t=0.8, float suppression_t=0.3, string pp_name=""): 
         PipeProcessor(2, 2, AVP_TENSOR, pp_name, STREAM_PROC), scoreClipThrs(clip_t), minScoreThrs(score_t), 
-        minSuppressionThrs(suppression_t) //int dst_h, int dst_w, int obj_up_id, int obj_down_id,  dstHeight(dst_h), dstWidth(dst_w), objUpId(obj_up_id), objDownId(obj_down_id)
+        minSuppressionThrs(suppression_t), numKeypoints(num_keypts) //int dst_h, int dst_w, int obj_up_id, int obj_down_id,  dstHeight(dst_h), dstWidth(dst_w), objUpId(obj_up_id), objDownId(obj_down_id)
     {
-        scoreDim = 4 + numKeypoints;
+        scoreDim = 4 + numKeypoints*2;
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto detScores = in_data_list[0].tensor.clamp(-scoreClipThrs, scoreClipThrs).sigmoid();
+        auto detScores = in_data_list[0].tensor.clamp(-scoreClipThrs, scoreClipThrs).sigmoid().squeeze(-1);;
         auto detBoxes = in_data_list[1].tensor;
         auto mask = detScores >= minScoreThrs;
-        int bs = detBoxes.size(0);
-
+        int bs = 1; // detBoxes.size(0);
         /* Attention BS must be one!!!
          * TODO: a potential solution:
          *  limit the number of output dets to a fix number,
          *  using a flag to indicate whether this placeholder has a valid det.
          */ 
-    
+        // std::cout<<mask.sizes()<<detBoxes.sizes()<<detScores.sizes()<<"\n";
         for(int i=0; i< bs; i++)
         {
             auto boxes = detBoxes[i].index(mask[i]);
             auto scores = detScores[i].index(mask[i]).unsqueeze(-1);
-
+            // std::cout<<boxes.sizes()<<scores.sizes()<<"\n";
             /* NMS */
             std::vector<Tensor> outDetsList;
             weightedNMS(torch::cat({boxes, scores}, -1), outDetsList, scoreDim, minSuppressionThrs);
             int numDets = outDetsList.size();
-            int i =0;
-            auto outDets = torch::empty({numDets, 5}, torch::kF32);
-            auto outLandMarks = torch::empty({numDets, numKeypoints}, torch::kF32);
-            for(auto& det_t:outDetsList)
+            // std::cout<<numDets<<"\n";
+            if(numDets)
             {
-                outDets[i].slice(0,0,4) = det_t.slice(0,0,4);
-                outDets[i][4] = det_t[scoreDim];
-                outLandMarks[i].slice(0,0,numKeypoints) = det_t.slice(0,4,scoreDim);
-                i++;
+                int j =0;
+                auto outDets = torch::empty({numDets, 4}, torch::kF32);
+                auto outLandMarks = torch::empty({numDets, numKeypoints*2}, torch::kF32);
+                for(auto& det_t:outDetsList)
+                {
+                    outDets[j].slice(0,0,4) = det_t.slice(0,0,4);
+                    // outDets[j][4] = det_t[scoreDim]; // only when we require the det scores.
+                    outLandMarks[j].slice(0,0,numKeypoints*2) = det_t.slice(0,4,scoreDim);
+                    j++;
+                }
+                out_data_list[0].tensor = outDets;
+                out_data_list[1].tensor = outLandMarks.reshape({numDets, numKeypoints, 2});
             }
-            out_data_list[0].tensor = outDets;
-            out_data_list[1].tensor = outLandMarks;
+            else
+            {
+                out_data_list[0].tensor = torch::zeros({1, 4}, torch::kF32);
+                out_data_list[1].tensor = torch::zeros({1, numKeypoints, 2});
+            }
         }
     }
     

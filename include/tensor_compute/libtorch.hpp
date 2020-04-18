@@ -24,7 +24,7 @@ public:
         else //if(numOutStreams>1)
         {
             auto outputs = model.forward(inputs).toTuple();
-            for(int i=0; i<numOutStreams; i++)
+            for(size_t i=0; i<numOutStreams; i++)
                 out_data_list[i].tensor = outputs->elements()[0].toTensor();
         }
         inputs.pop_back();

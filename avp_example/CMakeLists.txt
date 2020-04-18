@@ -32,6 +32,12 @@ target_link_libraries( pose_estimation ${OpenCV_LIBS} )
 target_link_libraries( pose_estimation "${InferenceEngine_LIBRARIES}")
 target_link_libraries( pose_estimation "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/lib/libonnxruntime.1.1.2.dylib")
 
+add_executable( multi_hand_tracking multi_hand_tracking.cpp )
+target_link_libraries( multi_hand_tracking "${TORCH_LIBRARIES}")
+target_link_libraries( multi_hand_tracking ${OpenCV_LIBS} )
+target_link_libraries( multi_hand_tracking "${InferenceEngine_LIBRARIES}")
+target_link_libraries( multi_hand_tracking "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/lib/libonnxruntime.1.1.2.dylib")
+
 
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ldl -pthread -fPIC")
