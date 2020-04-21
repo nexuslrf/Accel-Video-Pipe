@@ -60,7 +60,8 @@ public:
         {
             float* rawPtr = outputTensors[i].Ort::Value::template GetTensorMutableData<float>();
             auto outDims = outputTensors[i].GetTypeInfo().GetTensorTypeAndShapeInfo().GetShape();
-            out_data_list[i].tensor = torch::from_blob(rawPtr, outDims);
+            auto output = torch::from_blob(rawPtr, outDims);
+            out_data_list[i].loadData(output);
         }
     }
 };

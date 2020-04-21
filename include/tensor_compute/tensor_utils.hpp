@@ -21,7 +21,8 @@ public:
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         // only if batchsize == 1 ...
-        out_data_list[0].tensor = in_data_list[0].tensorData().permute({2,0,1}).unsqueeze(0).to(torch::kCPU, false, true);
+        auto output = in_data_list[0].tensor().permute({2,0,1}).unsqueeze(0).to(torch::kCPU, false, true);
+        out_data_list[0].loadData(output);
     }
 };
 

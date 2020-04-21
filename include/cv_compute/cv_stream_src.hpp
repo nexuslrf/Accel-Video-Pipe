@@ -24,7 +24,9 @@ public:
 
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        cap>>out_data_list[0].mat;
+        Mat frame;
+        cap>>frame;
+        out_data_list[0].loadData(frame);
         addTick();
     }
 

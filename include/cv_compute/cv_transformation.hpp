@@ -37,9 +37,11 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        cv::resize(in_data_list[0].mat(ROI), out_data_list[0].mat, {dstWidth, dstHeight}, 0, 0, cv::INTER_LINEAR);
+        Mat tmp_mat;
+        cv::resize(in_data_list[0].mat()(ROI), tmp_mat, {dstWidth, dstHeight}, 0, 0, cv::INTER_LINEAR);
         if(flip)
-            cv::flip(out_data_list[0].mat, out_data_list[0].mat, +1);
+            cv::flip(tmp_mat, tmp_mat, +1);
+        out_data_list[0].loadData(tmp_mat);
     }
 };
 
@@ -57,10 +59,16 @@ public:
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         cv::Mat tmp_frame;
-        cv::cvtColor(in_data_list[0].mat, tmp_frame, cv::COLOR_BGR2RGB);
+        cv::cvtColor(in_data_list[0].mat(), tmp_frame, cv::COLOR_BGR2RGB);
         tmp_frame.convertTo(tmp_frame, CV_32F);
-        out_data_list[0].mat = (tmp_frame / 255.0 - mean) / stdev;
+        tmp_frame = (tmp_frame / 255.0 - mean) / stdev;
+        out_data_list[0].loadData(tmp_frame);
     }
 };
+
+// class RotateAndCrop: public PipeProcessor {
+// public:
+//     RotateAndCrop(string pp_name): //PipeProcessor(2,1)
+// };
 
 }

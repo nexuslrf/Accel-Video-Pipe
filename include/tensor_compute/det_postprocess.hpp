@@ -18,7 +18,7 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto heatmaps = in_data_list[0].tensor;
+        auto heatmaps = in_data_list[0].tensor();
         int bs = heatmaps.size(0), numJoints = heatmaps.size(1);
         auto [maxvals, idx] =  heatmaps.reshape({bs, numJoints, -1}).max(2, true);
         // preds: [N, C, 2]
@@ -28,9 +28,12 @@ public:
         auto predMusk = (maxvals > 0.0);
         preds.mul_(predMusk);
         // probs.copy_(maxvals);
-        out_data_list[0].tensor = preds;
+        out_data_list[0].loadData(preds);
         if(outputProb)
-            out_data_list[1].tensor = maxvals.squeeze(-1);
+        {
+            auto tmp_tensor = maxvals.squeeze(-1);
+            out_data_list[1].loadData(tmp_tensor);
+        }
     }
 };
 
@@ -43,10 +46,10 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto heatmaps = in_data_list[0].tensor;
+        auto heatmaps = in_data_list[0].tensor();
         int bs = heatmaps.size(0), numJoints = heatmaps.size(1);
-        auto map_a = in_data_list[0].tensor.accessor<float, 4>();
-        auto xy_a = in_data_list[1].tensor.accessor<int, 3>();
+        auto map_a = in_data_list[0].tensor().accessor<float, 4>();
+        auto xy_a = in_data_list[1].tensor().accessor<int, 3>();
         auto keyPoints = torch::empty({bs, numJoints, 2}, torch::kI32);
         int x,y;
         float d1_x, d1_y, d2;
@@ -74,7 +77,7 @@ public:
                 }
             }
         }
-        out_data_list[0].tensor = keyPoints;
+        out_data_list[0].loadData(keyPoints);
     }
 };
 
@@ -99,7 +102,7 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto rawBoxesP = in_data_list[0].tensor;
+        auto rawBoxesP = in_data_list[0].tensor();
         auto boxes = torch::empty_like(rawBoxesP);
         auto x_center = rawBoxesP.slice(2,0,1) / dstWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
         auto y_center = rawBoxesP.slice(2,1,2) / dstHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
@@ -115,7 +118,7 @@ public:
         int offset = 4 + numKeypoints * 2;
         boxes.slice(2,4,offset,2) = rawBoxesP.slice(2,4,offset,2) / dstWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
         boxes.slice(2,5,offset,2) = rawBoxesP.slice(2,5,offset,2) / dstHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
-        out_data_list[0].tensor = boxes;
+        out_data_list[0].loadData(boxes);
     }
 };
 
@@ -210,8 +213,8 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto detScores = in_data_list[0].tensor.clamp(-scoreClipThrs, scoreClipThrs).sigmoid().squeeze(-1);;
-        auto detBoxes = in_data_list[1].tensor;
+        auto detScores = in_data_list[0].tensor().clamp(-scoreClipThrs, scoreClipThrs).sigmoid().squeeze(-1);;
+        auto detBoxes = in_data_list[1].tensor();
         auto mask = detScores >= minScoreThrs;
         int bs = 1; // detBoxes.size(0);
         /* Attention BS must be one!!!
@@ -242,13 +245,16 @@ public:
                     outLandMarks[j].slice(0,0,numKeypoints*2) = det_t.slice(0,4,scoreDim);
                     j++;
                 }
-                out_data_list[0].tensor = outDets;
-                out_data_list[1].tensor = outLandMarks.reshape({numDets, numKeypoints, 2});
+                outLandMarks = outLandMarks.reshape({numDets, numKeypoints, 2});
+                out_data_list[0].loadData(outDets);
+                out_data_list[1].loadData(outLandMarks);
             }
             else
             {
-                out_data_list[0].tensor = torch::zeros({1, 4}, torch::kF32);
-                out_data_list[1].tensor = torch::zeros({1, numKeypoints, 2});
+                auto outDets = torch::zeros({1, 4}, torch::kF32);
+                auto outLandMarks = torch::zeros({1, numKeypoints, 2});
+                out_data_list[0].loadData(outDets);
+                out_data_list[1].loadData(outLandMarks);
             }
         }
     }

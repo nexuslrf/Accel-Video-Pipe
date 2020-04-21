@@ -18,14 +18,20 @@ public:
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         torch::NoGradGuard no_grad;
-        inputs.push_back(in_data_list[0].tensor);
+        inputs.push_back(in_data_list[0].tensor());
         if(numOutStreams==1)
-            out_data_list[0].tensor = model.forward(inputs).toTensor();
+        {
+            auto output = model.forward(inputs).toTensor();
+            out_data_list[0].loadData(output);
+        }
         else //if(numOutStreams>1)
         {
             auto outputs = model.forward(inputs).toTuple();
             for(size_t i=0; i<numOutStreams; i++)
-                out_data_list[i].tensor = outputs->elements()[0].toTensor();
+            {
+                auto output = outputs->elements()[0].toTensor();
+                out_data_list[i].loadData(output);
+            }
         }
         inputs.pop_back();
     }

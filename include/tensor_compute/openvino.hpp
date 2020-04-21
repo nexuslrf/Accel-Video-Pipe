@@ -42,7 +42,8 @@ public:
             InferenceEngine::Blob::Ptr outBlob = inferRequest.GetBlob(outputNames[i]);
             auto dims_tmp = outBlob->getTensorDesc().getDims();
             std::vector<int64_t> dims(dims_tmp.begin(), dims_tmp.end());
-            out_data_list[i].tensor = torch::from_blob(outBlob->buffer().as<float*>(), dims);
+            auto output = torch::from_blob(outBlob->buffer().as<float*>(), dims);
+            out_data_list[i].loadData(output);
         }
     }
 };

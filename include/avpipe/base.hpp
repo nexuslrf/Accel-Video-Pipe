@@ -23,83 +23,137 @@ using string = std::string;
 
 enum PackType {
     AVP_MAT = 0,
-    AVP_TENSOR = 1
+    AVP_TENSOR = 1,
 };
 class StreamPacket{
 public:
-    Mat mat;
-    Tensor tensor;
-    int timestamp, numConsume, batchSize;
+    std::vector<Mat> matList;
+    std::vector<Tensor> tensorList;
+    Mat mat_data;
+    Tensor tensor_data;
+    int timestamp, numConsume;
     PackType dataType;
-    StreamPacket(PackType data_type=AVP_TENSOR, int init_timestamp=-1): timestamp(init_timestamp), numConsume(0), 
-        batchSize(1), dataType(data_type) {}
+    StreamPacket(PackType data_type=AVP_TENSOR, int init_timestamp=-1): timestamp(init_timestamp), 
+        numConsume(0), dataType(data_type) {}
     StreamPacket(Tensor& tensor_data, int tensor_timestamp=-1): 
-        tensor(tensor_data), timestamp(tensor_timestamp), numConsume(0), batchSize(1), dataType(AVP_TENSOR) {}
+        timestamp(tensor_timestamp), numConsume(0), dataType(AVP_TENSOR) 
+    {
+        tensorList.push_back(tensor_data);
+    }
     StreamPacket(Mat& mat_data, int mat_timestamp=-1):
-        mat(mat_data), timestamp(mat_timestamp), numConsume(0), batchSize(1), dataType(AVP_MAT) {}
+        timestamp(mat_timestamp), numConsume(0), dataType(AVP_MAT) 
+    {
+        matList.push_back(mat_data);
+    }
     bool empty()
     {
         if(dataType==AVP_TENSOR)
-            return tensor.numel() == 0;
+            return tensorList.empty() || tensorList.front().numel() == 0;
         else if(dataType==AVP_MAT)
-            return mat.empty();
+            return matList.empty() || matList.front().empty();
         else
             return true;
     }
+
     bool empty(PackType data_type)
     {
         if(data_type==AVP_TENSOR)
-            return tensor.numel() == 0;
+            return tensorList.empty() || tensorList.front().numel() == 0;
         else if(data_type==AVP_MAT)
-            return mat.empty();
-        return true;
+            return matList.empty() || matList.front().empty();
+        else
+            return true;
     }
-    void* data_ptr()
+
+    void* data_ptr(int idx=0)
     {
         if(dataType==AVP_MAT)
-            return mat.data;
+            return matList[idx].data;
         else if(dataType==AVP_TENSOR)
-            return tensor.data_ptr();
+            return tensorList[idx].data_ptr();
         return NULL;
     }
 
-    Mat& matData()
+    Mat& mat(size_t idx=0, bool enlist=false)
     {
         if(dataType==AVP_MAT)
-            return mat;
+        {
+            if(idx < matList.size())
+            {
+                return matList[idx];
+            }
+            else
+            {
+                matList.push_back(mat_data);
+                return matList.front();
+            }
+        }
+
         else
         {   // tensor to mat
-            if(!mat.empty()||tensor.numel()==0)
-                return mat;
+            if(!empty(AVP_MAT)||empty(AVP_TENSOR))
+            {   
+                if(enlist)
+                    matList.push_back(mat_data);
+                return mat_data;
+            }
             else
             {
                 // @TODO: must ensure mat.type()==CV_32FC3
                 // tensor's data layout must be HWC rather than CHW.
                 // ignore type checking here...
                 // TensorToMat is not that common compared to MatToTensor...
-                mat = cv::Mat(tensor.size(0), tensor.size(1), CV_32FC3, tensor.data_ptr());
-                return mat;
+                tensor_data = tensorList[idx];
+                mat_data = cv::Mat(tensor_data.size(0), tensor_data.size(1), CV_32FC3, tensor_data.data_ptr());
+                if(enlist)
+                    matList.push_back(mat_data);
+                return mat_data;
             }
             
         }
     }
-    Tensor& tensorData()
+    Tensor& tensor(size_t idx=0, bool enlist=false)
     {
         if(dataType==AVP_TENSOR)
-            return tensor;
+        {
+            if(idx < tensorList.size())
+            {
+               return tensorList[idx]; 
+            }
+            else
+            {
+                tensorList.push_back(tensor_data);
+                return tensorList.front();
+            }
+        }
         else
         {   // mat to tensor, no memcpy
-            if(mat.empty()||tensor.numel()!=0)
-                return tensor;
+            if(empty(AVP_MAT)||!empty(AVP_TENSOR))
+            {
+                if(enlist)
+                    tensorList.push_back(tensor_data);
+                return tensor_data;
+            }
             else
             {
                 // @TODO: must ensure mat.type()==CV_32FC3
                 // ignore type checking here...
-                tensor = torch::from_blob(mat.data, {mat.rows, mat.cols, 3}, torch::kFloat32);
-                return tensor;
+                mat_data = matList[idx];
+                tensor_data = torch::from_blob(mat_data.data, {mat_data.rows, mat_data.cols, 3}, torch::kFloat32);
+                if(enlist)
+                    tensorList.push_back(tensor_data);
+                return tensor_data;
             }
             
         }
+    }
+    void loadData(Tensor& t_data)
+    {
+        tensorList.push_back(t_data);
+    }
+    void loadData(Mat& m_data)
+    {
+        matList.push_back(m_data);
     }
 };
 

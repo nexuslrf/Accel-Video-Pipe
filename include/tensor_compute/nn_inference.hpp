@@ -41,7 +41,7 @@ public:
     }
 
 
-    /* Below are deprecated */
+    /* Below are deprecated!!! */
     virtual void infer(StreamPacket& in_data, StreamPacket& out_data) {};
 
     void process_Deprecated()

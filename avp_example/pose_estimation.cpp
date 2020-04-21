@@ -60,23 +60,14 @@ int main()
     {
         videoSrc.process();
         empty = pipe[0].empty();
-        // std::cout<<"video pass\n";
         crop.process();
-        // std::cout<<"crop pass\n";
         normalization.process();
-        // std::cout<<"normalization pass\n";
         matToTensor.process();
-        // std::cout<<"matToTensor pass\n";
         CNN.process();
-        // std::cout<<"CNN pass\n";
         filter.process();
-        // std::cout<<"filter pass\n";
         maxPred.process();
-        // std::cout<<"maxPred pass\n";
         getKeypoint.process();
-        // std::cout<<"getKeypoint pass\n";
         draw.process();
-        // std::cout<<"draw pass\n";
         imshow.process();
     }
 }

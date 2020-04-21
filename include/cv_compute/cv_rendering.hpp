@@ -19,16 +19,16 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto rawCoords = in_data_list[0].tensor;
+        auto rawCoords = in_data_list[0].tensor();
         auto probs = torch::ones({rawCoords.size(0), rawCoords.size(1)}, torch::kF32);
         if(probThres!=0)
-            probs = in_data_list[2].tensor;
+            probs = in_data_list[2].tensor();
         auto probs_a = probs.accessor<float, 2>();
         cv::Mat showFrame;
         if(in_data_list[1].numConsume == 1)
-            showFrame = in_data_list[1].mat;
+            showFrame = in_data_list[1].mat();
         else
-            in_data_list[1].mat.copyTo(showFrame);
+            in_data_list[1].mat().copyTo(showFrame);
             
         auto rawCoords_a = rawCoords.accessor<int, 3>();
         // idx 0 -> x idx 1 -> y
@@ -45,7 +45,7 @@ public:
                 }
             }
         }
-        out_data_list[0].mat = showFrame;
+        out_data_list[0].loadData(showFrame);
     }
 };
 
@@ -67,16 +67,16 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto rawBndBoxes = in_data_list[0].tensor;
+        auto rawBndBoxes = in_data_list[0].tensor();
         auto probs = torch::ones({rawBndBoxes.size(0)}, torch::kF32);
         if(probThres!=0)
-            probs = in_data_list[2].tensor;
+            probs = in_data_list[2].tensor();
         auto probs_a = probs.accessor<float, 1>();
         cv::Mat showFrame;
         if(in_data_list[1].numConsume == 1)
-            showFrame = in_data_list[1].mat;
+            showFrame = in_data_list[1].mat();
         else
-            in_data_list[1].mat.copyTo(showFrame);
+            in_data_list[1].mat().copyTo(showFrame);
             
         auto rawBndBoxes_a = rawBndBoxes.accessor<float, 2>();
         for(int i=0; i<rawBndBoxes.size(0); i++)
@@ -90,7 +90,7 @@ public:
                 cv::rectangle(showFrame, cv::Rect(xmin+widthOffset, ymin+heightOffset, xmax-xmin, ymax-ymin), color);
             }
         }
-        out_data_list[0].mat = showFrame;
+        out_data_list[0].loadData(showFrame);
     }
 };
 
