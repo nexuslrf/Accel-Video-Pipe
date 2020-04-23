@@ -20,22 +20,16 @@ public:
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         int bs = in_data_list[0].size();
-        if(bs==1)
+        auto size = in_data_list[0].mat().size();
+        auto objTensor = torch::empty({bs, 3, size.height, size.width}, torch::kF32);
+        for(int i=0; i<bs; i++)
         {
-            auto output = in_data_list[0].tensor().permute({2,0,1}).unsqueeze(0).to(torch::kCPU, false, true);
-            out_data_list[0].loadData(output);
+            auto tmp_out = in_data_list[0].tensor(i).permute({2,0,1});
+            objTensor[i] = tmp_out;
+            // auto new_out = tmp_out.permute({2,0,1}).unsqueeze(0); //.to(torch::kCPU, false, true);
+            // std::cout<<new_out.sizes()<<"\n";
         }
-        else
-        {   
-            auto size = in_data_list[0].mat().size();
-            auto objTensor = torch::empty({bs, 3, size.height, size.width}, torch::kF32);
-            for(int i=0; i<bs; i++)
-            {
-                auto tmp_out = in_data_list[0].tensor(i).permute({2,0,1}).unsqueeze(0).to(torch::kCPU, false, true);
-                objTensor.slice(0, i, i+1) = tmp_out;
-            }
-            out_data_list[0].loadData(objTensor);
-        }
+        out_data_list[0].loadData(objTensor);
     }
 };
 

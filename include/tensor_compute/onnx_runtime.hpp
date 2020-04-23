@@ -5,8 +5,10 @@
 
 namespace avp {
 
+/* Important Note for ONNXRuntimeProcessor
+ * 
+ */
 class ONNXRuntimeProcessor: public NNProcessor {
-    Ort::Env env{ORT_LOGGING_LEVEL_WARNING, "test"};
     Ort::SessionOptions sessionOptions;
     Ort::Session* sessionPtr;
     Ort::MemoryInfo memInfo;
@@ -15,10 +17,12 @@ class ONNXRuntimeProcessor: public NNProcessor {
     size_t numInputNodes, numOutputNodes;
     std::vector<const char*> inputNodeNames, outputNodeNames;
 public:
+    Ort::Env env;
     ONNXRuntimeProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, int num_output=1,
         std::string pp_name = ""): NNProcessor(dims, ONNX_RT, data_layout, num_output, pp_name), 
-        memInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)) 
+        memInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)), env(ORT_LOGGING_LEVEL_WARNING, "test")
     {
+        // env_ptr = &env;
         inDims = std::vector<int64_t>(dims.begin(), dims.end());
         singleTensorSize = channels * inHeight * inWidth;
         inputTensorSize = batchSize * singleTensorSize;
@@ -71,6 +75,41 @@ public:
             out_data_list[i].loadData(output);
         }
     }
+    /* ------------Potentially Useful------------------------ */
+    // Ort::Env* env_ptr;
+    // ONNXRuntimeProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, Ort::Env& def_env, int num_output=1,
+    //     std::string pp_name = ""): NNProcessor(dims, ONNX_RT, data_layout, num_output, pp_name), 
+    //     memInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)) 
+    // {
+    //     env_ptr = &def_env;
+    //     inDims = std::vector<int64_t>(dims.begin(), dims.end());
+    //     singleTensorSize = channels * inHeight * inWidth;
+    //     inputTensorSize = batchSize * singleTensorSize;
+
+    //     sessionOptions.SetIntraOpNumThreads(1);
+    //     sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+    //     const char* modelPath = model_path.c_str();
+    //     sessionPtr = new Ort::Session(*env_ptr, modelPath, sessionOptions);
+    //     Ort::AllocatorWithDefaultOptions allocator;
+    //     numInputNodes = sessionPtr->GetInputCount();
+        
+    //     inputNodeNames = std::vector<const char*>(numInputNodes);
+    //     // Note: ensure numInputNodes == 1
+    //     for(size_t i=0; i<numInputNodes; i++)
+    //     {
+    //         char* input_name = sessionPtr->GetInputName(i, allocator);
+    //         inputNodeNames[i] = input_name;
+    //     }
+    //     Ort::TypeInfo typeInfo = sessionPtr->GetInputTypeInfo(0);
+    //     auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+
+    //     numOutputNodes = sessionPtr->GetOutputCount();
+    //     outputNodeNames = std::vector<const char*>(numOutputNodes);
+    //     for (size_t i = 0; i < numOutputNodes; i++) {
+    //         char* output_name = sessionPtr->GetOutputName(i, allocator);
+    //         outputNodeNames[i] = output_name;
+    //     }
+    // }
 };
 
 }

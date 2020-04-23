@@ -23,14 +23,15 @@ int main()
     avp::CenterCropResize crop(rawHeight, rawWidth, dstHeight, dstWidth, false, true);
     avp::ImgNormalization normalization(0.5, 0.5);
     avp::DataLayoutConvertion matToTensor;
-    avp::ONNXRuntimeProcessor CNN({1,3,256,256}, avp::NCHW, palmModel, 2);
+    avp::ONNXRuntimeProcessor PalmCNN({1,3,256,256}, avp::NCHW, palmModel, 2);
     avp::DecodeDetBoxes decodeBoxes(numAnchors, anchorFile, dstHeight, dstWidth, numKeypointsPalm);
     avp::NonMaxSuppression NMS(numKeypointsPalm);
     avp::DrawDetBoxes drawDet(dstHeight, dstWidth);
     avp::StreamShowProcessor imshow(-1);
     avp::RotateCropResize rotateCropResize(dstHeight, dstWidth, crop.cropHeight, crop.cropWidth);
     avp::DataLayoutConvertion multiCropToTensor;
-    avp::ONNXRuntimeProcessor CNN2({0,3,256,256}, avp::NCHW, handModel, 2);
+    avp::ImgNormalization normalization2(0.5, 0.5);
+    avp::ONNXRuntimeProcessor HandCNN({0,3,256,256}, avp::NCHW, handModel, 2);
 
     avp::Stream pipe[20];
 
@@ -41,9 +42,9 @@ int main()
     normalization.bindStream(&pipe[2], avp::AVP_STREAM_OUT);
     matToTensor.bindStream(&pipe[2], avp::AVP_STREAM_IN);
     matToTensor.bindStream(&pipe[3], avp::AVP_STREAM_OUT);
-    CNN.bindStream(&pipe[3], avp::AVP_STREAM_IN);
-    CNN.bindStream(&pipe[4], avp::AVP_STREAM_OUT);
-    CNN.bindStream(&pipe[5], avp::AVP_STREAM_OUT);
+    PalmCNN.bindStream(&pipe[3], avp::AVP_STREAM_IN);
+    PalmCNN.bindStream(&pipe[4], avp::AVP_STREAM_OUT);
+    PalmCNN.bindStream(&pipe[5], avp::AVP_STREAM_OUT);
     decodeBoxes.bindStream(&pipe[4], avp::AVP_STREAM_IN);
     decodeBoxes.bindStream(&pipe[6], avp::AVP_STREAM_OUT);
     NMS.bindStream(&pipe[5], avp::AVP_STREAM_IN);
@@ -60,11 +61,13 @@ int main()
     rotateCropResize.bindStream(&pipe[11], avp::AVP_STREAM_OUT);
     rotateCropResize.bindStream(&pipe[12], avp::AVP_STREAM_OUT);
     rotateCropResize.bindStream(&pipe[13], avp::AVP_STREAM_OUT);
-    multiCropToTensor.bindStream(&pipe[11], avp::AVP_STREAM_IN);
-    multiCropToTensor.bindStream(&pipe[15], avp::AVP_STREAM_OUT);
-    CNN2.bindStream(&pipe[15], avp::AVP_STREAM_IN);
-    CNN2.bindStream(&pipe[16], avp::AVP_STREAM_OUT);
-    CNN2.bindStream(&pipe[17], avp::AVP_STREAM_OUT);
+    normalization2.bindStream(&pipe[11], avp::AVP_STREAM_IN);
+    normalization2.bindStream(&pipe[15], avp::AVP_STREAM_OUT);
+    multiCropToTensor.bindStream(&pipe[15], avp::AVP_STREAM_IN);
+    multiCropToTensor.bindStream(&pipe[16], avp::AVP_STREAM_OUT);
+    HandCNN.bindStream(&pipe[16], avp::AVP_STREAM_IN);
+    HandCNN.bindStream(&pipe[17], avp::AVP_STREAM_OUT);
+    HandCNN.bindStream(&pipe[18], avp::AVP_STREAM_OUT);
 
     avp::StreamPacket inData(rawFrame, 0);
     pipe[0].loadPacket(inData);
@@ -75,7 +78,7 @@ int main()
     std::cout<<"normalization pass!\n";
     matToTensor.process();
     std::cout<<"matToTensor pass!\n";
-    CNN.process();
+    PalmCNN.process();
     std::cout<<"CNN pass!\n";
     decodeBoxes.process();
     std::cout<<"decodeBoxes pass!\n";
@@ -88,8 +91,11 @@ int main()
     std::cout<<"imshow pass!\n";
     rotateCropResize.process();
     std::cout<<"rotateCropResize pass!\n";
+    normalization2.process();
+    std::cout<<"normalization2 pass!\n";
     multiCropToTensor.process();
     std::cout<<"multiCropToTensor pass!\n";
-    CNN2.process();
-    std::cout<<pipe[16].front().tensor().sizes()<<"\n";
+    HandCNN.process();
+    std::cout<<"HandCNN pass!\n";
+    std::cout<<pipe[17].front().tensor().sizes()<<"\n";
 }
