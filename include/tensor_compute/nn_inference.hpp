@@ -32,7 +32,7 @@ public:
     NNProcessor(SizeVector dims, IEType ie_type, DataLayout data_layout, int num_output,
                 std::string pp_name): PipeProcessor(1, num_output, AVP_TENSOR, pp_name, STREAM_PROC)
     {
-        batchSize = dims[0];
+        batchSize = dims[0]; // -1 or 0 means resizable
         channels = dims[1];
         inHeight = dims[2];
         inWidth = dims[3];

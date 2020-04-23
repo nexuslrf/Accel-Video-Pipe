@@ -15,9 +15,10 @@ class OpenVinoProcessor: public NNProcessor {
     InferenceEngine::TensorDesc tDesc;
     InferenceEngine::ExecutableNetwork executableNN;
     std::vector<std::string> inputNames, outputNames;
+    SizeVector dims;
 public:
-    OpenVinoProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, int num_output=1,
-        std::string pp_name = ""): NNProcessor(dims, OPENVINO, data_layout, num_output, pp_name)  
+    OpenVinoProcessor(SizeVector input_dims, DataLayout data_layout, std::string model_path, int num_output=1,
+        std::string pp_name = ""): NNProcessor(input_dims, OPENVINO, data_layout, num_output, pp_name), dims(input_dims)  
     {
         std::string model_xml = model_path+".xml";
         std::string model_bin = model_path+".bin";
@@ -28,11 +29,20 @@ public:
             outputNames.push_back(pr.first);
         executableNN = ie.LoadNetwork(network, "CPU");
         inferRequest = executableNN.CreateInferRequest();
-        tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32, dims,
+        if(batchSize>0)
+        {
+            tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32, input_dims,
                                         InferenceEngine::Layout::NCHW);
+        }
     } 
     void run(DataList& in_data_list, DataList& out_data_list)
     {
+        if(batchSize<=0)
+        {
+            dims[0] = in_data_list[0].tensor().size(0);
+            tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32, dims,
+                                        InferenceEngine::Layout::NCHW);
+        }
         InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, 
             (float_t*)in_data_list[0].data_ptr());
         inferRequest.SetBlob(inputNames[0], inBlob);

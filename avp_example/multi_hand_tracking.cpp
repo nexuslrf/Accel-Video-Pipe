@@ -29,8 +29,10 @@ int main()
     avp::DrawDetBoxes drawDet(dstHeight, dstWidth);
     avp::StreamShowProcessor imshow(-1);
     avp::RotateCropResize rotateCropResize(dstHeight, dstWidth, crop.cropHeight, crop.cropWidth);
+    avp::DataLayoutConvertion multiCropToTensor;
+    // avp::ONNXRuntimeProcessor CNN2({0,})
 
-    avp::Stream pipe[15];
+    avp::Stream pipe[20];
 
     crop.bindStream(&pipe[0], avp::AVP_STREAM_IN);
     crop.bindStream(&pipe[1], avp::AVP_STREAM_OUT);
@@ -58,6 +60,8 @@ int main()
     rotateCropResize.bindStream(&pipe[11], avp::AVP_STREAM_OUT);
     rotateCropResize.bindStream(&pipe[12], avp::AVP_STREAM_OUT);
     rotateCropResize.bindStream(&pipe[13], avp::AVP_STREAM_OUT);
+    multiCropToTensor.bindStream(&pipe[11], avp::AVP_STREAM_IN);
+    multiCropToTensor.bindStream(&pipe[15], avp::AVP_STREAM_OUT);
 
     avp::StreamPacket inData(rawFrame, 0);
     pipe[0].loadPacket(inData);
@@ -81,8 +85,7 @@ int main()
     std::cout<<"imshow pass!\n";
     rotateCropResize.process();
     std::cout<<"rotateCropResize pass!\n";
-    
-    cv::imshow("",pipe[11].front().mat());
-    cv::waitKey();
-
+    multiCropToTensor.process();
+    std::cout<<"multiCropToTensor pass!\n";
+    std::cout<<pipe[15].front().tensor().sizes()<<"\n";
 }

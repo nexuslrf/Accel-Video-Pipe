@@ -10,7 +10,7 @@ class ONNXRuntimeProcessor: public NNProcessor {
     Ort::SessionOptions sessionOptions;
     Ort::Session* sessionPtr;
     Ort::MemoryInfo memInfo;
-    size_t inputTensorSize;
+    size_t inputTensorSize, singleTensorSize;
     std::vector<int64_t> inDims;
     size_t numInputNodes, numOutputNodes;
     std::vector<const char*> inputNodeNames, outputNodeNames;
@@ -19,9 +19,10 @@ public:
         std::string pp_name = ""): NNProcessor(dims, ONNX_RT, data_layout, num_output, pp_name), 
         memInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)) 
     {
-        inDims = std::vector<int64_t>({(int64_t)this->batchSize, (int64_t)this->channels, 
-                (int64_t)this->inHeight, (int64_t)this->inWidth});
-        inputTensorSize = this->batchSize * this->channels * this->inHeight * this->inWidth;
+        inDims = std::vector<int64_t>(dims.begin(), dims.end());
+        singleTensorSize = channels * inHeight * inWidth;
+        inputTensorSize = batchSize * singleTensorSize;
+
         sessionOptions.SetIntraOpNumThreads(1);
         sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
         const char* modelPath = model_path.c_str();
@@ -52,6 +53,12 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
+        if(batchSize<=0)
+        {
+            int bs = in_data_list[0].tensor().size(0);
+            inDims[0] = bs;
+            inputTensorSize = singleTensorSize * bs;
+        }
         Ort::Value inTensor = Ort::Value::CreateTensor<float>(memInfo, (float_t*)in_data_list[0].data_ptr(), 
             inputTensorSize, inDims.data(), inDims.size());
         auto outputTensors = sessionPtr->Run(Ort::RunOptions{nullptr}, inputNodeNames.data(), 
