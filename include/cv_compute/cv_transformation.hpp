@@ -179,7 +179,7 @@ public:
             cv::Point2f rotCenter(rotPtMat(0), rotPtMat(1));
             // Out of range cases
             float xrescale_2 = xrescales_a[i]/2, yrescale_2 = yrescales_a[i]/2;
-            std::cout<<xrescale_2<<" "<<yrescale_2<<"\n";
+            // std::cout<<xrescale_2<<" "<<yrescale_2<<"\n";
             float xDwHalf = std::min(rotCenter.x, xrescale_2), yDwHalf = std::min(rotCenter.y, yrescale_2);
             float xUpHalf = rotCenter.x+xrescale_2 > rotFrame.cols?rotFrame.cols-rotCenter.x:xrescale_2;
             float yUpHalf = rotCenter.y+yrescale_2 > rotFrame.rows?rotFrame.rows-rotCenter.y:yrescale_2;
