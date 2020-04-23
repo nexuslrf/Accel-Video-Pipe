@@ -25,6 +25,8 @@ Base Classes (in `avpipe/base.hpp`):
 
 * don't think about *async iterator* right now!
 
+* Redundant PackType
+
 * [ ] Build Stream Packet Struct/Class
 
   * [x] torch::Tensor
@@ -66,7 +68,7 @@ Base Classes (in `avpipe/base.hpp`):
       * [ ] Pre-processing
         * [x] Normalization
         * [x] Layout Transfromation
-        * [ ] Rotation
+        * [x] Rotation
         * [x] Crop
       * [ ] Post-processing
         * [ ] Rendering

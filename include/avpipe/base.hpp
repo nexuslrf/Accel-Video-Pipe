@@ -13,6 +13,7 @@
 #include <vector>
 #include <queue>
 #include <mutex>
+#include <cmath>
 
 namespace avp {
 
@@ -147,13 +148,27 @@ public:
             
         }
     }
-    void loadData(Tensor& t_data)
+    void loadData(const Tensor& t_data)
     {
         tensorList.push_back(t_data);
     }
-    void loadData(Mat& m_data)
+    void loadData(const Mat& m_data)
     {
         matList.push_back(m_data);
+    }
+    size_t size()
+    {
+        if(dataType==AVP_MAT)
+            return matList.size();
+        else
+            return tensorList.size();
+    }
+    size_t size(PackType data_type)
+    {
+        if(data_type==AVP_MAT)
+            return matList.size();
+        else
+            return tensorList.size();
     }
 };
 

@@ -257,7 +257,7 @@ int main()
             int idx = 0;
             for(auto& cropHand: cropHands)
             {
-                resize(cropHand.img, tmpFrame, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
+                cv::resize(cropHand.img, tmpFrame, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
                 // showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
                 cv::cvtColor(tmpFrame, tmpFrame, cv::COLOR_BGR2RGB);
                 tmpFrame.convertTo(tmpFrame, CV_32F);

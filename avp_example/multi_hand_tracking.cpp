@@ -18,7 +18,9 @@ int main()
     int dstHeight = 256, dstWidth = 256;
     int numAnchors = 2944, numKeypointsPalm = 7;
 
-    avp::CenterCropResize crop(rawHeight, rawWidth, dstHeight, dstWidth);
+    // std::cout<<rawHeight<<" "<<rawWidth<<"\n";
+
+    avp::CenterCropResize crop(rawHeight, rawWidth, dstHeight, dstWidth, false, true);
     avp::ImgNormalization normalization(0.5, 0.5);
     avp::DataLayoutConvertion matToTensor;
     avp::ONNXRuntimeProcessor CNN({1,3,256,256}, avp::NCHW, palmModel, 2);
@@ -26,11 +28,13 @@ int main()
     avp::NonMaxSuppression NMS(numKeypointsPalm);
     avp::DrawDetBoxes drawDet(dstHeight, dstWidth);
     avp::StreamShowProcessor imshow(-1);
+    avp::RotateCropResize rotateCropResize(dstHeight, dstWidth, crop.cropHeight, crop.cropWidth);
 
     avp::Stream pipe[15];
 
     crop.bindStream(&pipe[0], avp::AVP_STREAM_IN);
     crop.bindStream(&pipe[1], avp::AVP_STREAM_OUT);
+    crop.bindStream(&pipe[14], avp::AVP_STREAM_OUT);
     normalization.bindStream(&pipe[1], avp::AVP_STREAM_IN);
     normalization.bindStream(&pipe[2], avp::AVP_STREAM_OUT);
     matToTensor.bindStream(&pipe[2], avp::AVP_STREAM_IN);
@@ -48,6 +52,12 @@ int main()
     drawDet.bindStream(&pipe[1], avp::AVP_STREAM_IN);
     drawDet.bindStream(&pipe[10], avp::AVP_STREAM_OUT);
     imshow.bindStream(&pipe[10], avp::AVP_STREAM_IN);
+    rotateCropResize.bindStream(&pipe[7], avp::AVP_STREAM_IN);
+    rotateCropResize.bindStream(&pipe[8], avp::AVP_STREAM_IN);
+    rotateCropResize.bindStream(&pipe[14], avp::AVP_STREAM_IN);
+    rotateCropResize.bindStream(&pipe[11], avp::AVP_STREAM_OUT);
+    rotateCropResize.bindStream(&pipe[12], avp::AVP_STREAM_OUT);
+    rotateCropResize.bindStream(&pipe[13], avp::AVP_STREAM_OUT);
 
     avp::StreamPacket inData(rawFrame, 0);
     pipe[0].loadPacket(inData);
@@ -69,6 +79,10 @@ int main()
     std::cout<<"drawDet pass!\n";
     imshow.process();
     std::cout<<"imshow pass!\n";
+    rotateCropResize.process();
+    std::cout<<"rotateCropResize pass!\n";
     
+    cv::imshow("",pipe[11].front().mat());
+    cv::waitKey();
 
 }

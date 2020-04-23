@@ -240,7 +240,8 @@ public:
                 auto outLandMarks = torch::empty({numDets, numKeypoints*2}, torch::kF32);
                 for(auto& det_t:outDetsList)
                 {
-                    outDets[j].slice(0,0,4) = det_t.slice(0,0,4);
+                    // // [ymin, xmin, ymax, xmax]
+                    outDets[j].slice(0,0,4) = det_t.slice(0,0,4); 
                     // outDets[j][4] = det_t[scoreDim]; // only when we require the det scores.
                     outLandMarks[j].slice(0,0,numKeypoints*2) = det_t.slice(0,4,scoreDim);
                     j++;
@@ -252,7 +253,7 @@ public:
             else
             {
                 auto outDets = torch::zeros({1, 4}, torch::kF32);
-                auto outLandMarks = torch::zeros({1, numKeypoints, 2});
+                auto outLandMarks = torch::zeros({1, numKeypoints, 2}, torch::kF32);
                 out_data_list[0].loadData(outDets);
                 out_data_list[1].loadData(outLandMarks);
             }
