@@ -295,8 +295,8 @@ int main()
                     for(int j=0; j<numKeypointsHand; j++)
                     {
                         cv::circle(showFrame, cv::Point2f(keypointsMatRe(0,j), keypointsMatRe(1,j)), 4, {255, 0, 0}, -1);
-                        cv::circle(cropHands.front().img, cv::Point2f(keypointsHand(0,j)-x_offset+cropHands.front().affineMat.at<float>(0,2), 
-                                                    keypointsHand(1,j)-y_offset+cropHands.front().affineMat.at<float>(1,2)), 2, {0, 255, 0});
+                        // cv::circle(cropHands.front().img, cv::Point2f(keypointsHand(0,j)-x_offset+cropHands.front().affineMat.at<float>(0,2), 
+                        //                             keypointsHand(1,j)-y_offset+cropHands.front().affineMat.at<float>(1,2)), 2, {0, 255, 0});
                         if(nonFingerId[k] == j)
                         {
                             xmin = min(xmin, keypointsMatRe(0,j));

@@ -5,7 +5,7 @@
 
 namespace avp {
 
-/* Important Note for ONNXRuntimeProcessor
+/*
  * 
  */
 class ONNXRuntimeProcessor: public NNProcessor {

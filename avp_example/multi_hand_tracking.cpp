@@ -16,7 +16,7 @@ int main()
     int rawHeight = rawFrame.rows;
     int rawWidth = rawFrame.cols;
     int dstHeight = 256, dstWidth = 256;
-    int numAnchors = 2944, numKeypointsPalm = 7;
+    int numAnchors = 2944, numKeypointsPalm = 7, numKeypointsHand = 21;
 
     // std::cout<<rawHeight<<" "<<rawWidth<<"\n";
 
@@ -32,8 +32,10 @@ int main()
     avp::DataLayoutConvertion multiCropToTensor;
     avp::ImgNormalization normalization2(0.5, 0.5);
     avp::ONNXRuntimeProcessor HandCNN({0,3,256,256}, avp::NCHW, handModel, 2);
-
-    avp::Stream pipe[20];
+    avp::RotateBack rotateBack;
+    avp::DrawLandMarks drawKeypoint;
+    avp::StreamShowProcessor imshow_kp(-1);
+    avp::Stream pipe[25];
 
     crop.bindStream(&pipe[0], avp::AVP_STREAM_IN);
     crop.bindStream(&pipe[1], avp::AVP_STREAM_OUT);
@@ -61,6 +63,7 @@ int main()
     rotateCropResize.bindStream(&pipe[11], avp::AVP_STREAM_OUT);
     rotateCropResize.bindStream(&pipe[12], avp::AVP_STREAM_OUT);
     rotateCropResize.bindStream(&pipe[13], avp::AVP_STREAM_OUT);
+    rotateCropResize.bindStream(&pipe[21], avp::AVP_STREAM_OUT);
     normalization2.bindStream(&pipe[11], avp::AVP_STREAM_IN);
     normalization2.bindStream(&pipe[15], avp::AVP_STREAM_OUT);
     multiCropToTensor.bindStream(&pipe[15], avp::AVP_STREAM_IN);
@@ -68,6 +71,16 @@ int main()
     HandCNN.bindStream(&pipe[16], avp::AVP_STREAM_IN);
     HandCNN.bindStream(&pipe[17], avp::AVP_STREAM_OUT);
     HandCNN.bindStream(&pipe[18], avp::AVP_STREAM_OUT);
+    rotateBack.bindStream(&pipe[17], avp::AVP_STREAM_IN);
+    rotateBack.bindStream(&pipe[18], avp::AVP_STREAM_IN);
+    rotateBack.bindStream(&pipe[21], avp::AVP_STREAM_IN);
+    rotateBack.bindStream(&pipe[12], avp::AVP_STREAM_IN);
+    rotateBack.bindStream(&pipe[13], avp::AVP_STREAM_IN);
+    rotateBack.bindStream(&pipe[19], avp::AVP_STREAM_OUT);
+    drawKeypoint.bindStream(&pipe[19], avp::AVP_STREAM_IN);
+    drawKeypoint.bindStream(&pipe[14], avp::AVP_STREAM_IN);
+    drawKeypoint.bindStream(&pipe[20], avp::AVP_STREAM_OUT);
+    imshow_kp.bindStream(&pipe[20], avp::AVP_STREAM_IN);
 
     avp::StreamPacket inData(rawFrame, 0);
     pipe[0].loadPacket(inData);
@@ -97,5 +110,25 @@ int main()
     std::cout<<"multiCropToTensor pass!\n";
     HandCNN.process();
     std::cout<<"HandCNN pass!\n";
-    std::cout<<pipe[17].front().tensor().sizes()<<"\n";
+
+    // int bs = pipe[11].front().size();
+    // auto kps = pipe[17].front().tensor().reshape({bs, numKeypointsHand, 3});
+    // auto kps_a = kps.accessor<float, 3>();
+    // for(int i=0; i<bs; i++)
+    // {
+    //     for(int j=0; j<numKeypointsHand; j++)
+    //     {
+    //         cv::circle(pipe[11].front().mat(i), cv::Point(kps_a[i][j][0], kps_a[i][j][1]), 2, {0,0,255});
+    //     }
+    //     cv::imshow("", pipe[11].front().mat(i));
+    //     cv::waitKey();
+    // }
+
+    rotateBack.process();
+    std::cout<<"rotateBack pass!\n";
+    // std::cout<<pipe[19].front().tensor().sizes()<<"\n";
+    drawKeypoint.process();
+    std::cout<<"drawKeypoint pass!\n";
+    imshow_kp.process();
+    std::cout<<"imshow_kp pass!\n";
 }

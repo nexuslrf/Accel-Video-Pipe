@@ -50,7 +50,7 @@ public:
         int bs = heatmaps.size(0), numJoints = heatmaps.size(1);
         auto map_a = in_data_list[0].tensor().accessor<float, 4>();
         auto xy_a = in_data_list[1].tensor().accessor<int, 3>();
-        auto keyPoints = torch::empty({bs, numJoints, 2}, torch::kI32);
+        auto keyPoints = torch::empty({bs, numJoints, 2}, torch::kF32);
         int x,y;
         float d1_x, d1_y, d2;
         d2 = sigma * sigma / 4;
