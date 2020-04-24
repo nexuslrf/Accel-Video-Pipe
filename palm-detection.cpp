@@ -192,33 +192,31 @@ int main()
             // cout<<inFrame({0,0,4,4})<<endl;
             /* ---- NN Inference ---- */
             inputRawTensor = torch::from_blob(inFrame.data, {modelHeight, modelWidth, 3});
-            inputTensor = inputRawTensor.permute({2,0,1}).to(torch::kCPU, false, true);
+            inputTensor = torch::empty({batchSizePalm, 3, modelHeight, modelWidth}, torch::kF32);
+            inputTensor[0] = inputRawTensor.permute({2,0,1});
+            // cout<<inputTensor[0].slice(0, 0, 2)<<endl;
             Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, 
                         (float_t*)inputTensor.data_ptr(), palm_input_tensor_size, palm_input_node_dims.data(), 4);
             auto output_tensors = sessionPalm.Run(Ort::RunOptions{nullptr}, 
                         input_node_names.data(), &input_tensor, 1, output_node_names.data(), 2);
-            // cout<<output_tensors.size()<<"\n";
             float* rawBoxesPPtr = output_tensors[0].GetTensorMutableData<float>();
             float* rawScoresPPtr = output_tensors[1].GetTensorMutableData<float>();
-            // for(int i=0; i<10; i++)
-            //     cout<<rawBox[i]<<"  ";
             // Decode Box
             rawBoxesP = torch::from_blob(rawBoxesPPtr, {batchSizePalm, numAnchors, outDim});
             rawScoresP = torch::from_blob(rawScoresPPtr, {batchSizePalm, numAnchors});
 
+            // cout<<rawBoxesP.sum()<<endl;
+
             /* ---- Tensor to Detection ---- */
             decodeBoxes(rawBoxesP, anchors, detectionBoxes);
-            // cout<<detectionBoxes.slice(1,0,1);
             auto detectionScores = rawScoresP.clamp(-scoreClipThrs, scoreClipThrs).sigmoid();
             auto mask = detectionScores >= minScoreThrs;
-            // cout<<mask.sum();
             // auto outBoxes = detectionBoxes.index(mask[0]);
             // cout<<mask.sizes()<<"\n"<<detectionBoxes.sizes()<<"\n"<<detectionScores.sizes()<<"\n\n";
             for(int i=0; i < batchSizePalm; i++)
             {
                 auto boxes = detectionBoxes[i].index(mask[i]);
                 auto scores = detectionScores[i].index(mask[i]).unsqueeze(-1);
-                // cout<<boxes.sizes()<<"  "<<scores.sizes()<<endl;
                 // rawDetections.push_back(torch::cat({boxes, scores}, -1));
                 
                 /* ---- NMS ---- */
@@ -253,8 +251,8 @@ int main()
         {
             std::vector<int64_t> hand_input_node_dims = {batchSizeHand, 3, modelHeight, modelWidth};
             size_t hand_input_tensor_size = batchSizeHand * 3 * modelHeight * modelWidth;
-            auto handsTensor = torch::empty({batchSizeHand, modelWidth, modelHeight, 3});
             int idx = 0;
+            inputTensor = torch::empty({batchSizeHand, 3, modelWidth, modelHeight});
             for(auto& cropHand: cropHands)
             {
                 cv::resize(cropHand.img, tmpFrame, cv::Size(modelWidth, modelHeight), 0, 0, cv::INTER_LINEAR);
@@ -262,11 +260,10 @@ int main()
                 cv::cvtColor(tmpFrame, tmpFrame, cv::COLOR_BGR2RGB);
                 tmpFrame.convertTo(tmpFrame, CV_32F);
                 tmpFrame = tmpFrame / 127.5 - 1.0;
-                auto tmpHand = torch::from_blob(tmpFrame.data, {1, modelHeight, modelWidth, 3});
-                handsTensor.slice(0, idx, idx+1) = tmpHand;
+                auto tmpHand = torch::from_blob(tmpFrame.data, {modelHeight, modelWidth, 3});
+                inputTensor[idx] = tmpHand.permute({2,0,1});
                 idx++;
             }
-            inputTensor = handsTensor.permute({0,3,1,2}).to(torch::kCPU, false, true);
             Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, 
                         (float_t*)inputTensor.data_ptr(), hand_input_tensor_size, hand_input_node_dims.data(), 4);
             auto output_tensors = sessionHand.Run(Ort::RunOptions{nullptr}, 
