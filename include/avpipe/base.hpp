@@ -229,8 +229,9 @@ public:
     PackType dataType; // only used for output data type
     size_t numInStreams, numOutStreams;
     int timeTick;
+    bool skipEmptyCheck; // used to skip empty checking, to enable proper functioning
     PipeProcessor(int num_instreams, int num_outstreams, PackType data_type, std::string pp_name, PPType pp_type): name(pp_name), 
-        procType(pp_type), dataType(data_type), numInStreams(num_instreams), numOutStreams(num_outstreams), timeTick(-1)
+        procType(pp_type), dataType(data_type), numInStreams(num_instreams), numOutStreams(num_outstreams), timeTick(-1), skipEmptyCheck(false)
     {}
     void addTick() {
         timeTick = (timeTick + 1) % MAX_TIME_ROUND;
@@ -257,8 +258,7 @@ public:
                 else
                     timeTick = tmp_time;
             }
-
-            if(in_data.empty()||finish)
+            if((!skipEmptyCheck) && (in_data.empty()||finish))
             {
                 finish = true;
                 inStreams[i]->releasePacket();

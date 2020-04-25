@@ -39,20 +39,25 @@ Base Classes (in `avpipe/base.hpp`):
   Three major func:
 
   * initialization
-  
   * Stream binding
-  
   * Processing
     
     * **Note:** right now each call **only Process one** packet.
-    
-  * [ ] (WIP) Combine/operator+
-    
+  
+  **TODO:**
+  
+  * [ ] Combine/operator+
+  * [ ] Multiplexer
+  * [ ] Placeholder to bypass empty checking
+  
+  Processors:
+  
   * [x] Packaging NN inference engine, into universal API
     
       * [x] ONNX RT
       * [x] OpenVINO
       * [x] LibTorch
+    * [ ] TensorRT
     * [ ] Cloud API: consider *openSSH*
     
     TODO: 

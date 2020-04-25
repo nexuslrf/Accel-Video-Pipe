@@ -250,13 +250,13 @@ public:
                 out_data_list[0].loadData(outDets);
                 out_data_list[1].loadData(outLandMarks);
             }
-            else
-            {
-                auto outDets = torch::zeros({1, 4}, torch::kF32);
-                auto outLandMarks = torch::zeros({1, numKeypoints, 2}, torch::kF32);
-                out_data_list[0].loadData(outDets);
-                out_data_list[1].loadData(outLandMarks);
-            }
+            // else
+            // {
+            //     auto outDets = torch::zeros({1, 4}, torch::kF32);
+            //     auto outLandMarks = torch::zeros({1, numKeypoints, 2}, torch::kF32);
+            //     out_data_list[0].loadData(outDets);
+            //     out_data_list[1].loadData(outLandMarks);
+            // }
         }
     }
     

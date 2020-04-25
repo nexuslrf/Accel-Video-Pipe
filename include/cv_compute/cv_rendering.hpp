@@ -17,9 +17,16 @@ public:
     {
         if(probThres!=0)
             numInStreams = 3;
+        skipEmptyCheck = true;
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
+        // must consider empty case when skipEmptyCheck is true;
+        if(in_data_list[0].empty())
+        {
+            out_data_list[0].loadData(in_data_list[1].mat());
+            return;
+        }
         auto rawCoords = in_data_list[0].tensor();
         if(probThres!=0)
             probs = in_data_list[2].tensor();
@@ -66,9 +73,16 @@ public:
     {
         if(probThres!=0)
             numInStreams = 3;
+        skipEmptyCheck = true;
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
+        // must consider empty case when skipEmptyCheck is true;
+        if(in_data_list[0].empty())
+        {
+            out_data_list[0].loadData(in_data_list[1].mat());
+            return;
+        }
         auto rawBndBoxes = in_data_list[0].tensor();
         auto probs = torch::ones({rawBndBoxes.size(0)}, torch::kF32);
         if(probThres!=0)

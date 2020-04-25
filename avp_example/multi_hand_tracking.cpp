@@ -19,7 +19,8 @@ int main()
     int numAnchors = 2944, numKeypointsPalm = 7, numKeypointsHand = 21;
 
     // std::cout<<rawHeight<<" "<<rawWidth<<"\n";
-
+    avp::WebCamProcessor videoSrc;
+    rawWidth = videoSrc.rawWidth; rawHeight = videoSrc.rawHeight;
     avp::CenterCropResize crop(rawHeight, rawWidth, dstHeight, dstWidth, false, true);
     avp::ImgNormalization normalization(0.5, 0.5);
     avp::DataLayoutConvertion matToTensor;
@@ -34,9 +35,10 @@ int main()
     avp::ONNXRuntimeProcessor HandCNN({0,3,256,256}, avp::NCHW, handModel, 2);
     avp::RotateBack rotateBack;
     avp::DrawLandMarks drawKeypoint;
-    avp::StreamShowProcessor imshow_kp(-1);
+    avp::StreamShowProcessor imshow_kp(1);
     avp::Stream pipe[25];
 
+    videoSrc.bindStream(&pipe[0], avp::AVP_STREAM_OUT);
     crop.bindStream(&pipe[0], avp::AVP_STREAM_IN);
     crop.bindStream(&pipe[1], avp::AVP_STREAM_OUT);
     crop.bindStream(&pipe[14], avp::AVP_STREAM_OUT);
@@ -56,7 +58,7 @@ int main()
     drawDet.bindStream(&pipe[7], avp::AVP_STREAM_IN);
     drawDet.bindStream(&pipe[1], avp::AVP_STREAM_IN);
     drawDet.bindStream(&pipe[10], avp::AVP_STREAM_OUT);
-    imshow.bindStream(&pipe[10], avp::AVP_STREAM_IN);
+    // imshow.bindStream(&pipe[10], avp::AVP_STREAM_IN);
     rotateCropResize.bindStream(&pipe[7], avp::AVP_STREAM_IN);
     rotateCropResize.bindStream(&pipe[8], avp::AVP_STREAM_IN);
     rotateCropResize.bindStream(&pipe[14], avp::AVP_STREAM_IN);
@@ -82,53 +84,42 @@ int main()
     drawKeypoint.bindStream(&pipe[20], avp::AVP_STREAM_OUT);
     imshow_kp.bindStream(&pipe[20], avp::AVP_STREAM_IN);
 
-    avp::StreamPacket inData(rawFrame, 0);
-    pipe[0].loadPacket(inData);
-
-    crop.process();
-    std::cout<<"crop pass!\n";
-    normalization.process();
-    std::cout<<"normalization pass!\n";
-    matToTensor.process();
-    std::cout<<"matToTensor pass!\n";
-    PalmCNN.process();
-    std::cout<<"CNN pass!\n";
-    decodeBoxes.process();
-    std::cout<<"decodeBoxes pass!\n";
-    NMS.process();
-    std::cout<<"NMS pass!\n";
-    // std::cout<<pipe[7].front().tensor.sizes()<<"\n";
-    drawDet.process();
-    std::cout<<"drawDet pass!\n";
-    imshow.process();
-    std::cout<<"imshow pass!\n";
-    rotateCropResize.process();
-    std::cout<<"rotateCropResize pass!\n";
-    normalization2.process();
-    std::cout<<"normalization2 pass!\n";
-    multiCropToTensor.process();
-    std::cout<<"multiCropToTensor pass!\n";
-    HandCNN.process();
-    std::cout<<"HandCNN pass!\n";
-
-    // int bs = pipe[11].front().size();
-    // auto kps = pipe[17].front().tensor().reshape({bs, numKeypointsHand, 3});
-    // auto kps_a = kps.accessor<float, 3>();
-    // for(int i=0; i<bs; i++)
-    // {
-    //     for(int j=0; j<numKeypointsHand; j++)
-    //     {
-    //         cv::circle(pipe[11].front().mat(i), cv::Point(kps_a[i][j][0], kps_a[i][j][1]), 2, {0,0,255});
-    //     }
-    //     cv::imshow("", pipe[11].front().mat(i));
-    //     cv::waitKey();
-    // }
-
-    rotateBack.process();
-    std::cout<<"rotateBack pass!\n";
-    // std::cout<<pipe[19].front().tensor().sizes()<<"\n";
-    drawKeypoint.process();
-    std::cout<<"drawKeypoint pass!\n";
-    imshow_kp.process();
-    std::cout<<"imshow_kp pass!\n";
+    // avp::StreamPacket inData(rawFrame, 0);
+    // pipe[0].loadPacket(inData);
+    while(1)
+    {
+        videoSrc.process();
+        // std::cout<<"videoSrc pass!\n";
+        crop.process();
+        // std::cout<<"crop pass!\n";
+        normalization.process();
+        // std::cout<<"normalization pass!\n";
+        matToTensor.process();
+        // std::cout<<"matToTensor pass!\n";
+        PalmCNN.process();
+        // std::cout<<"CNN pass!\n";
+        decodeBoxes.process();
+        // std::cout<<"decodeBoxes pass!\n";
+        NMS.process();
+        // std::cout<<"NMS pass!\n";
+        drawDet.process();
+        // std::cout<<"drawDet pass!\n";
+        // imshow.process();
+        // std::cout<<"imshow pass!\n";
+        rotateCropResize.process();
+        // std::cout<<"rotateCropResize pass!\n";
+        normalization2.process();
+        // std::cout<<"normalization2 pass!\n";
+        multiCropToTensor.process();
+        // std::cout<<"multiCropToTensor pass!\n";
+        HandCNN.process();
+        // std::cout<<"HandCNN pass!\n";
+        rotateBack.process();
+        // std::cout<<"rotateBack pass!\n";
+        // std::cout<<pipe[19].front().tensor().sizes()<<"\n";
+        drawKeypoint.process();
+        // std::cout<<"drawKeypoint pass!\n";
+        imshow_kp.process();
+        // std::cout<<"imshow_kp pass!\n";
+    }
 }

@@ -124,22 +124,27 @@ public:
      */
     void run(DataList& in_data_list, DataList& out_data_list)
     {
+        // std::cout<<"[Debug] start!\n";
         auto detBoxes = in_data_list[0].tensor() * sizeScale;
         // auto detBoxes_a = detBoxes.accessor<float, 2>(); // [ymin, xmin, ymax, xmax]
         auto frame = in_data_list[2].mat();
         int numDets = detBoxes.size(0);
         auto detKeypoint = in_data_list[1].tensor();
-        auto yscales = (detBoxes.slice(1,2,3) - detBoxes.slice(1,0,1)).squeeze();
-        auto xscales = (detBoxes.slice(1,3,4) - detBoxes.slice(1,1,2)).squeeze();
-        auto obj_Delta = (detKeypoint.slice(1,objDownIdx,objDownIdx+1) - detKeypoint.slice(1,objUpIdx,objUpIdx+1)).squeeze();
-        auto angleRads = torch::atan2(obj_Delta.slice(1,0,1), obj_Delta.slice(1,1,2)).squeeze();
+        // std::cout<<"[Debug] sizes\n"<<detBoxes.sizes()<<"\n"<<detKeypoint.sizes()<<"!\n";
+
+        auto yscales = (detBoxes.slice(1,2,3) - detBoxes.slice(1,0,1)).squeeze(-1);
+        auto xscales = (detBoxes.slice(1,3,4) - detBoxes.slice(1,1,2)).squeeze(-1);
+        auto obj_Delta = (detKeypoint.slice(1,objDownIdx,objDownIdx+1) - detKeypoint.slice(1,objUpIdx,objUpIdx+1)).squeeze(1);
+        // std::cout<<"[Debug] obj_d"<<obj_Delta.sizes()<<"!\n";
+
+        auto angleRads = torch::atan2(obj_Delta.slice(1,0,1), obj_Delta.slice(1,1,2)).squeeze(-1);
         auto angleDegs = (angleRads * 180 / M_PI);
         auto angleDegs_a = angleDegs.accessor<float, 1>();
-
-        auto x_centers = (detBoxes.slice(1,1,2).squeeze()/*xmin*/ + xscales * (0.5 - shiftY*torch::sin(angleRads) + 
+        // std::cout<<"[Debug] start center compute!\n";
+        auto x_centers = (detBoxes.slice(1,1,2).squeeze(-1)/*xmin*/ + xscales * (0.5 - shiftY*torch::sin(angleRads) + 
             shiftX*torch::cos(angleRads)));
         auto x_centers_a = x_centers.accessor<float, 1>();
-        auto y_centers = (detBoxes.slice(1,0,1).squeeze()/*ymin*/ + yscales * (0.5 - shiftY*torch::cos(angleRads) - 
+        auto y_centers = (detBoxes.slice(1,0,1).squeeze(-1)/*ymin*/ + yscales * (0.5 - shiftY*torch::cos(angleRads) - 
             shiftX*torch::sin(angleRads)));
         auto y_centers_a = y_centers.accessor<float, 1>();
         if(keepSquare)
@@ -152,7 +157,9 @@ public:
         
         auto xrescales_a = xrescales.accessor<float, 1>();
         auto yrescales_a = yrescales.accessor<float, 1>();
-
+        
+        // std::cout<<"[Debug] get cropped hands !\n";
+        
         // get cropped hands 
         for(int i=0; i<numDets; i++)
         {
@@ -166,6 +173,8 @@ public:
             // Cropping & Point Affine Transformation
             cv::Mat_<float> pointMat(2,1, CV_32F);
             pointMat<< x_centers_a[i], y_centers_a[i];
+            // std::cout<<"[Debug] compute affine!\n";
+            
             cv::Mat_<float> rotPtMat = computePointAffine(pointMat, affineMat, false);
             cv::Point2f rotCenter(rotPtMat(0), rotPtMat(1));
             // Out of range cases
@@ -203,7 +212,7 @@ public:
      */ 
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto scores = in_data_list[1].tensor().squeeze();
+        auto scores = in_data_list[1].tensor().squeeze(-1);
         auto scores_a = scores.accessor<float, 1>();
         int inBs = in_data_list[2].size();
         auto rawKeypoints =in_data_list[0].tensor().reshape({inBs, numKeypoints, 3});
