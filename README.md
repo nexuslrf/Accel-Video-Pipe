@@ -80,7 +80,7 @@ Base Classes (in `avpipe/base.hpp`):
           * [x] LandMarks
           * [x] Bounding Boxes
       
-  * [ ] YAML representation of Pipeline
+  * [ ] YAML representation of Pipeline [ref1](https://cloud.tencent.com/developer/article/1423468), [ref2](https://github.com/jbeder/yaml-cpp)
   
   * [ ] Code/Proc auto-generating
   

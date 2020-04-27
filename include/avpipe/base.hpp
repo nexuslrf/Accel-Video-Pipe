@@ -11,6 +11,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <tuple>
 #include <queue>
 #include <mutex>
 #include <cmath>

@@ -19,8 +19,8 @@ int main()
     int numAnchors = 2944, numKeypointsPalm = 7, numKeypointsHand = 21;
 
     // std::cout<<rawHeight<<" "<<rawWidth<<"\n";
-    avp::WebCamProcessor videoSrc;
-    rawWidth = videoSrc.rawWidth; rawHeight = videoSrc.rawHeight;
+    // avp::WebCamProcessor videoSrc;
+    // rawWidth = videoSrc.rawWidth; rawHeight = videoSrc.rawHeight;
     avp::CenterCropResize crop(rawHeight, rawWidth, dstHeight, dstWidth, false, true);
     avp::ImgNormalization normalization(0.5, 0.5);
     avp::DataLayoutConvertion matToTensor;
@@ -28,20 +28,26 @@ int main()
     avp::DecodeDetBoxes decodeBoxes(numAnchors, anchorFile, dstHeight, dstWidth, numKeypointsPalm);
     avp::NonMaxSuppression NMS(numKeypointsPalm);
     avp::DrawDetBoxes drawDet(dstHeight, dstWidth);
-    avp::StreamShowProcessor imshow(-1);
+    avp::StreamShowProcessor imshow(-1, "Det");
     avp::RotateCropResize rotateCropResize(dstHeight, dstWidth, crop.cropHeight, crop.cropWidth);
     avp::DataLayoutConvertion multiCropToTensor;
     avp::ImgNormalization normalization2(0.5, 0.5);
     avp::ONNXRuntimeProcessor HandCNN({0,3,256,256}, avp::NCHW, handModel, 2);
     avp::RotateBack rotateBack;
     avp::DrawLandMarks drawKeypoint;
-    avp::StreamShowProcessor imshow_kp(1);
+    avp::StreamShowProcessor imshow_kp(-1);
+    avp::LandMarkToDet keypointToBndBox({0, 1, 2, 3, 5, 6, 9, 10, 13, 14, 17, 18});
+
     avp::Stream pipe[25];
 
-    videoSrc.bindStream(&pipe[0], avp::AVP_STREAM_OUT);
+    // videoSrc.bindStream(&pipe[0], avp::AVP_STREAM_OUT);
     crop.bindStream(&pipe[0], avp::AVP_STREAM_IN);
     crop.bindStream(&pipe[1], avp::AVP_STREAM_OUT);
     crop.bindStream(&pipe[14], avp::AVP_STREAM_OUT);
+/* ----Multiplexer Here? Or just blocking?----
+ * a processor takes inStreams and does the conditioning decision
+ * to forward data to which module
+ */
     normalization.bindStream(&pipe[1], avp::AVP_STREAM_IN);
     normalization.bindStream(&pipe[2], avp::AVP_STREAM_OUT);
     matToTensor.bindStream(&pipe[2], avp::AVP_STREAM_IN);
@@ -58,7 +64,7 @@ int main()
     drawDet.bindStream(&pipe[7], avp::AVP_STREAM_IN);
     drawDet.bindStream(&pipe[1], avp::AVP_STREAM_IN);
     drawDet.bindStream(&pipe[10], avp::AVP_STREAM_OUT);
-    // imshow.bindStream(&pipe[10], avp::AVP_STREAM_IN);
+    imshow.bindStream(&pipe[10], avp::AVP_STREAM_IN);
     rotateCropResize.bindStream(&pipe[7], avp::AVP_STREAM_IN);
     rotateCropResize.bindStream(&pipe[8], avp::AVP_STREAM_IN);
     rotateCropResize.bindStream(&pipe[14], avp::AVP_STREAM_IN);
@@ -82,13 +88,15 @@ int main()
     drawKeypoint.bindStream(&pipe[19], avp::AVP_STREAM_IN);
     drawKeypoint.bindStream(&pipe[14], avp::AVP_STREAM_IN);
     drawKeypoint.bindStream(&pipe[20], avp::AVP_STREAM_OUT);
+    keypointToBndBox.bindStream(&pipe[19], avp::AVP_STREAM_IN);
+    keypointToBndBox.bindStream(&pipe[22], avp::AVP_STREAM_OUT);
     imshow_kp.bindStream(&pipe[20], avp::AVP_STREAM_IN);
 
-    // avp::StreamPacket inData(rawFrame, 0);
-    // pipe[0].loadPacket(inData);
-    while(1)
+    avp::StreamPacket inData(rawFrame, 0);
+    pipe[0].loadPacket(inData);
+    // while(1)
     {
-        videoSrc.process();
+        // videoSrc.process();
         // std::cout<<"videoSrc pass!\n";
         crop.process();
         // std::cout<<"crop pass!\n";
@@ -104,7 +112,7 @@ int main()
         // std::cout<<"NMS pass!\n";
         drawDet.process();
         // std::cout<<"drawDet pass!\n";
-        // imshow.process();
+        imshow.process();
         // std::cout<<"imshow pass!\n";
         rotateCropResize.process();
         // std::cout<<"rotateCropResize pass!\n";
@@ -121,5 +129,7 @@ int main()
         // std::cout<<"drawKeypoint pass!\n";
         imshow_kp.process();
         // std::cout<<"imshow_kp pass!\n";
+        keypointToBndBox.process();
+        std::cout<<pipe[22].front().tensor().sizes()<<"\n";
     }
 }

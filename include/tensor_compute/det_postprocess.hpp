@@ -257,10 +257,7 @@ public:
             //     out_data_list[0].loadData(outDets);
             //     out_data_list[1].loadData(outLandMarks);
             // }
-        }
-    }
-    
-};
+
                 // outDets[i][0] = det[0] * dstHeight; // ymin
                 // outDets[i][1] = det[1] * dstWidth; // xmin
                 // outDets[i][2] = det[2] * dstHeight; // ymax
@@ -269,4 +266,61 @@ public:
                 // outDets[i][5] = det[4+objUpId*2+1]; 
                 // outDets[i][6] = det[4+objDownId*2]; 
                 // outDets[i][7] = det[4+objDownId*2+1];
+        }
+    }
+};
+
+/*
+ * Note: Given a LandMark Detection results, this processor, try to use land mark info
+ * To generate a proper sized detection bounding box, in order to bypass the det NN path
+ * Right now, only used in multi-hand tracking example. Further application needed to be 
+ * Devloped
+ * 
+ * in_data_list: [0] keypoints
+ * out_data_list: [0] bounding boxes
+ */
+class LandMarkToDet: public PipeProcessor {
+    std::vector<int> selectedPointIdx_vec;
+    Tensor selectedPointIdx;
+
+public:
+    LandMarkToDet(string pp_name=""): PipeProcessor(1,1,AVP_TENSOR,pp_name,STREAM_PROC)
+    {}
+    LandMarkToDet(std::vector<int>& points_idx, string pp_name=""): PipeProcessor(1,1,AVP_TENSOR,pp_name,STREAM_PROC),
+        selectedPointIdx_vec(points_idx)
+    {
+        selectedPointIdx = torch::from_blob(selectedPointIdx_vec.data(), {(int)selectedPointIdx_vec.size()}, torch::kI32).to(torch::kI64);
+    }
+    void run(DataList& in_data_list, DataList& out_data_list)
+    {
+        auto keypoints = in_data_list[0].tensor();
+        // std::cout<<keypoints.sizes()<<"\n";
+        int bs = keypoints.size(0), numKeypoints = keypoints.size(1);
+        // auto keypoints_a = keypoints.accessor<float, 3>();
+        auto bBoxTen = torch::empty({bs, 4}, torch::kF32);
+        Tensor keypoints_x, keypoints_y;
+        if(selectedPointIdx_vec.empty())
+        {
+            // [bs, numPts]
+            keypoints_x = keypoints.slice(2, 0, 1).squeeze(-1);
+            keypoints_y = keypoints.slice(2, 1, 2).squeeze(-1);
+        }
+        else
+        {
+            // [bs, numPts]
+            keypoints_x = keypoints.index({torch::indexing::Slice(), selectedPointIdx, 0});
+            keypoints_y = keypoints.index({torch::indexing::Slice(), selectedPointIdx, 1});
+        }
+        auto ymins = keypoints_y.min(1, true);
+        auto xmins = keypoints_x.min(1, true);
+        auto ymaxs = keypoints_y.max(1, true);
+        auto xmaxs = keypoints_x.max(1, true);
+        // std::cout<<std::get<0>(ymins).sizes()<<"\n";
+        bBoxTen.slice(1,0,1) = std::get<0>(ymins);
+        bBoxTen.slice(1,1,2) = std::get<0>(xmins);
+        bBoxTen.slice(1,2,3) = std::get<0>(ymaxs);
+        bBoxTen.slice(1,3,4) = std::get<0>(xmaxs);
+        out_data_list[0].loadData(bBoxTen);
+    }
+};
 }
