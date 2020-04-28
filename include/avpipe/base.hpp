@@ -313,6 +313,34 @@ public:
             outStreams.push_back(stream_ptr);
         }
     }
+    virtual void bindStream(std::vector<Stream*> stream_ptr_list, StreamType stream_type) 
+    {
+        if(stream_type==AVP_STREAM_IN)
+        {
+            for(auto& stream_ptr: stream_ptr_list)
+            {
+                if(inStreams.size()==numInStreams)
+                {
+                    std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of inStreams exceeds limit.\n";
+                    exit(0);
+                }
+                inStreams.push_back(stream_ptr);
+                stream_ptr->numConsume++;
+            }
+        }
+        else if(stream_type==AVP_STREAM_OUT)
+        {
+            for(auto& stream_ptr: stream_ptr_list)
+            {
+                if(outStreams.size()==numOutStreams)
+                {
+                    std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of outStreams exceeds limit.\n";
+                    exit(0);
+                }
+                outStreams.push_back(stream_ptr);
+            }
+        }
+    }
     void checkStream()
     {
         // @TODO: Not sufficient!

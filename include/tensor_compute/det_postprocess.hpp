@@ -295,7 +295,7 @@ public:
     {
         auto keypoints = in_data_list[0].tensor();
         // std::cout<<keypoints.sizes()<<"\n";
-        int bs = keypoints.size(0), numKeypoints = keypoints.size(1);
+        int bs = keypoints.size(0); // numKeypoints = keypoints.size(1);
         // auto keypoints_a = keypoints.accessor<float, 3>();
         auto bBoxTen = torch::empty({bs, 4}, torch::kF32);
         Tensor keypoints_x, keypoints_y;

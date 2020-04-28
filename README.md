@@ -49,6 +49,8 @@ Base Classes (in `avpipe/base.hpp`):
   * [ ] Combine/operator+
   * [ ] Multiplexer
   * [ ] Placeholder to bypass empty checking
+  * [x] 🌟Try to simplify the processing of user-defined processors:
+    * [x] Lambda Function & Function Pointer
   
   Processors:
   
