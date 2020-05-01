@@ -130,11 +130,13 @@ public:
         auto frame = in_data_list[2].mat();
         int numDets = detBoxes.size(0);
         auto detKeypoint = in_data_list[1].tensor();
+        
         // std::cout<<"[Debug] sizes\n"<<detBoxes.sizes()<<"\n"<<detKeypoint.sizes()<<"!\n";
 
         auto yscales = (detBoxes.slice(1,2,3) - detBoxes.slice(1,0,1)).squeeze(-1);
         auto xscales = (detBoxes.slice(1,3,4) - detBoxes.slice(1,1,2)).squeeze(-1);
         auto obj_Delta = (detKeypoint.slice(1,objDownIdx,objDownIdx+1) - detKeypoint.slice(1,objUpIdx,objUpIdx+1)).squeeze(1);
+        
         // std::cout<<"[Debug] obj_d"<<obj_Delta.sizes()<<"!\n";
 
         auto angleRads = torch::atan2(obj_Delta.slice(1,0,1), obj_Delta.slice(1,1,2)).squeeze(-1);
@@ -173,16 +175,27 @@ public:
             // Cropping & Point Affine Transformation
             cv::Mat_<float> pointMat(2,1, CV_32F);
             pointMat<< x_centers_a[i], y_centers_a[i];
+
             // std::cout<<"[Debug] compute affine!\n";
             
             cv::Mat_<float> rotPtMat = computePointAffine(pointMat, affineMat, false);
             cv::Point2f rotCenter(rotPtMat(0), rotPtMat(1));
+
+            // std::cout<<"[Debug] rot Center: "<<rotCenter<<"\n";
+            // cv::circle(rotFrame, rotCenter, 4, {255,0,0}); // [Debug]
+            // cv::imshow("[Debug]", rotFrame);
+            // cv::waitKey(); // [Debug]
+
             // Out of range cases
             float xrescale_2 = xrescales_a[i]/2, yrescale_2 = yrescales_a[i]/2;
             float xDwHalf = std::min(rotCenter.x, xrescale_2), yDwHalf = std::min(rotCenter.y, yrescale_2);
             float xUpHalf = rotCenter.x+xrescale_2 > rotFrame.cols?rotFrame.cols-rotCenter.x:xrescale_2;
             float yUpHalf = rotCenter.y+yrescale_2 > rotFrame.rows?rotFrame.rows-rotCenter.y:yrescale_2;
+            // std::cout<<"[Debug] cropObj!\n    Rect: "<<cv::Rect(rotCenter.x-xDwHalf, rotCenter.y-yDwHalf, xDwHalf+xUpHalf, yDwHalf+yUpHalf)<<"\n";
             auto cropObj = rotFrame(cv::Rect(rotCenter.x-xDwHalf, rotCenter.y-yDwHalf, xDwHalf+xUpHalf, yDwHalf+yUpHalf));
+            
+            // std::cout<<"[Debug] copyMakeBorder!\n";
+
             Mat resizeCrop;
             cv::copyMakeBorder(cropObj, cropObj, yrescale_2-yDwHalf, yrescale_2-yUpHalf, 
                                 xrescale_2-xDwHalf, xrescale_2-xUpHalf, cv::BORDER_CONSTANT);

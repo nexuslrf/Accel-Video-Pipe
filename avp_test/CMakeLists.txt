@@ -44,9 +44,9 @@ target_link_libraries( packet_test "${OpenCV_LIBS}" )
 target_link_libraries( packet_test "${InferenceEngine_LIBRARIES}")
 target_link_libraries( packet_test "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2/lib/libonnxruntime.1.1.2.dylib")
 
-add_executable( template_proc_test template_proc_test.cpp )
-target_link_libraries( template_proc_test "${TORCH_LIBRARIES}")
-target_link_libraries( template_proc_test "${OpenCV_LIBS}" )
-target_link_libraries( template_proc_test "${InferenceEngine_LIBRARIES}")
+add_executable( util_proc_test util_proc_test.cpp )
+target_link_libraries( util_proc_test "${TORCH_LIBRARIES}")
+target_link_libraries( util_proc_test "${OpenCV_LIBS}" )
+target_link_libraries( util_proc_test "${InferenceEngine_LIBRARIES}")
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ldl -pthread -fPIC")

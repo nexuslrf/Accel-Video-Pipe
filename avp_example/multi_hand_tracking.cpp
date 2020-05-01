@@ -1,6 +1,7 @@
 #include <iostream>
 #include <avpipe/tensor_compute.hpp>
 #include <avpipe/cv_compute.hpp>
+#include <avpipe/util_compute.hpp>
 #include <avpipe/base.hpp>
 #include <tensor_compute/det_postprocess.hpp>
 
@@ -17,8 +18,9 @@ int main()
     int rawWidth = rawFrame.cols;
     int dstHeight = 256, dstWidth = 256;
     int numAnchors = 2944, numKeypointsPalm = 7, numKeypointsHand = 21;
-
-    // std::cout<<rawHeight<<" "<<rawWidth<<"\n";
+    int handUpId = 9, handDownId = 0, palmUpId = 2, palmDownId = 0;
+    float palm_shift_y = 0.5, palm_shift_x = 0, palm_box_scale = 2.6,
+          hand_shift_y = 0, hand_shift_x = 0,  hand_box_scale = 2.1;
     // avp::WebCamProcessor videoSrc;
     // rawWidth = videoSrc.rawWidth; rawHeight = videoSrc.rawHeight;
     avp::CenterCropResize crop(rawHeight, rawWidth, dstHeight, dstWidth, false, true);
@@ -29,7 +31,8 @@ int main()
     avp::NonMaxSuppression NMS(numKeypointsPalm);
     avp::DrawDetBoxes drawDet(dstHeight, dstWidth);
     avp::StreamShowProcessor imshow(-1, "Det");
-    avp::RotateCropResize rotateCropResize(dstHeight, dstWidth, crop.cropHeight, crop.cropWidth);
+    avp::RotateCropResize palmRotateCropResize(dstHeight, dstWidth, crop.cropHeight, crop.cropWidth,
+                    palmUpId, palmDownId, palm_shift_y, palm_shift_x, palm_box_scale);
     avp::DataLayoutConvertion multiCropToTensor;
     avp::ImgNormalization normalization2(0.5, 0.5);
     avp::ONNXRuntimeProcessor HandCNN({0,3,256,256}, avp::NCHW, handModel, 2);
@@ -37,99 +40,114 @@ int main()
     avp::DrawLandMarks drawKeypoint;
     avp::StreamShowProcessor imshow_kp(-1);
     avp::LandMarkToDet keypointToBndBox({0, 1, 2, 3, 5, 6, 9, 10, 13, 14, 17, 18});
+    avp::RotateCropResize handRotateCropResize(dstHeight, dstWidth, 1, 1, 
+                    handUpId, handDownId, hand_shift_y, hand_shift_x, hand_box_scale);
+    
+    avp::TemplateProcessor multiplexer(2, 1, [](avp::DataList& in_data_list, avp::DataList& out_data_list){
+        if(in_data_list[0].empty())
+        {
+            avp::Mat frame = in_data_list[1].mat();
+            out_data_list[0].loadData(frame);
+        }
+    }, avp::AVP_MAT);
+    multiplexer.skipEmptyCheck = true;
 
-    avp::Stream pipe[25];
+    avp::TemplateProcessor streamMerger(5, 4, [&](avp::DataList& in_data_list, avp::DataList& out_data_list){
+        if(!streamMerger.checkEmpty(0, 2))
+        {
+            auto palmStreams = avp::DataList({in_data_list[0], in_data_list[1], in_data_list[4]});
+            palmRotateCropResize.run(palmStreams, out_data_list);
+        }
+        else
+        {
+            auto handStreams = avp::DataList({in_data_list[2], in_data_list[3], in_data_list[4]});
+            handRotateCropResize.run(handStreams, out_data_list);
+        }
+    }, avp::AVP_MAT);
+    streamMerger.skipEmptyCheck = true;
 
+    avp::TimeUpdater timeUpdate(2);
+
+    avp::Stream pipe[30];
     // videoSrc.bindStream(&pipe[0], avp::AVP_STREAM_OUT);
-    crop.bindStream(&pipe[0], avp::AVP_STREAM_IN);
-    crop.bindStream(&pipe[1], avp::AVP_STREAM_OUT);
-    crop.bindStream(&pipe[14], avp::AVP_STREAM_OUT);
-/* ----Multiplexer Here? Or just blocking?----
- * a processor takes inStreams and does the conditioning decision
- * to forward data to which module
- */
-    normalization.bindStream(&pipe[1], avp::AVP_STREAM_IN);
-    normalization.bindStream(&pipe[2], avp::AVP_STREAM_OUT);
-    matToTensor.bindStream(&pipe[2], avp::AVP_STREAM_IN);
-    matToTensor.bindStream(&pipe[3], avp::AVP_STREAM_OUT);
-    PalmCNN.bindStream(&pipe[3], avp::AVP_STREAM_IN);
-    PalmCNN.bindStream(&pipe[4], avp::AVP_STREAM_OUT);
-    PalmCNN.bindStream(&pipe[5], avp::AVP_STREAM_OUT);
-    decodeBoxes.bindStream(&pipe[4], avp::AVP_STREAM_IN);
-    decodeBoxes.bindStream(&pipe[6], avp::AVP_STREAM_OUT);
-    NMS.bindStream(&pipe[5], avp::AVP_STREAM_IN);
-    NMS.bindStream(&pipe[6], avp::AVP_STREAM_IN);
-    NMS.bindStream(&pipe[7], avp::AVP_STREAM_OUT);
-    NMS.bindStream(&pipe[8], avp::AVP_STREAM_OUT);
-    drawDet.bindStream(&pipe[7], avp::AVP_STREAM_IN);
-    drawDet.bindStream(&pipe[1], avp::AVP_STREAM_IN);
-    drawDet.bindStream(&pipe[10], avp::AVP_STREAM_OUT);
+    crop.bindStream({&pipe[0]}, {&pipe[1], &pipe[14]});
+    multiplexer.bindStream({&pipe[25], &pipe[1]}, {&pipe[23]});
+    normalization.bindStream({&pipe[23]}, {&pipe[2]});
+    matToTensor.bindStream({&pipe[2]}, {&pipe[3]});
+    PalmCNN.bindStream({&pipe[3]}, {&pipe[4], &pipe[5]});
+    decodeBoxes.bindStream({&pipe[4]}, {&pipe[6]});
+    NMS.bindStream({&pipe[5], &pipe[6]}, {&pipe[7], &pipe[8]});
+    drawDet.bindStream({&pipe[7], &pipe[1]}, {&pipe[10]});
     imshow.bindStream(&pipe[10], avp::AVP_STREAM_IN);
-    rotateCropResize.bindStream(&pipe[7], avp::AVP_STREAM_IN);
-    rotateCropResize.bindStream(&pipe[8], avp::AVP_STREAM_IN);
-    rotateCropResize.bindStream(&pipe[14], avp::AVP_STREAM_IN);
-    rotateCropResize.bindStream(&pipe[11], avp::AVP_STREAM_OUT);
-    rotateCropResize.bindStream(&pipe[12], avp::AVP_STREAM_OUT);
-    rotateCropResize.bindStream(&pipe[13], avp::AVP_STREAM_OUT);
-    rotateCropResize.bindStream(&pipe[21], avp::AVP_STREAM_OUT);
-    normalization2.bindStream(&pipe[11], avp::AVP_STREAM_IN);
-    normalization2.bindStream(&pipe[15], avp::AVP_STREAM_OUT);
-    multiCropToTensor.bindStream(&pipe[15], avp::AVP_STREAM_IN);
-    multiCropToTensor.bindStream(&pipe[16], avp::AVP_STREAM_OUT);
-    HandCNN.bindStream(&pipe[16], avp::AVP_STREAM_IN);
-    HandCNN.bindStream(&pipe[17], avp::AVP_STREAM_OUT);
-    HandCNN.bindStream(&pipe[18], avp::AVP_STREAM_OUT);
-    rotateBack.bindStream(&pipe[17], avp::AVP_STREAM_IN);
-    rotateBack.bindStream(&pipe[18], avp::AVP_STREAM_IN);
-    rotateBack.bindStream(&pipe[21], avp::AVP_STREAM_IN);
-    rotateBack.bindStream(&pipe[12], avp::AVP_STREAM_IN);
-    rotateBack.bindStream(&pipe[13], avp::AVP_STREAM_IN);
-    rotateBack.bindStream(&pipe[19], avp::AVP_STREAM_OUT);
-    drawKeypoint.bindStream(&pipe[19], avp::AVP_STREAM_IN);
-    drawKeypoint.bindStream(&pipe[14], avp::AVP_STREAM_IN);
-    drawKeypoint.bindStream(&pipe[20], avp::AVP_STREAM_OUT);
-    keypointToBndBox.bindStream(&pipe[19], avp::AVP_STREAM_IN);
-    keypointToBndBox.bindStream(&pipe[22], avp::AVP_STREAM_OUT);
+    streamMerger.bindStream({&pipe[7], &pipe[8], &pipe[25], &pipe[24], &pipe[14]}, 
+                            {&pipe[11], &pipe[12], &pipe[13], &pipe[21]});
+    normalization2.bindStream({&pipe[11]}, {&pipe[15]});
+    multiCropToTensor.bindStream({&pipe[15]}, {&pipe[16]});
+    HandCNN.bindStream({&pipe[16]}, {&pipe[17], &pipe[18]});
+    rotateBack.bindStream({&pipe[17], &pipe[18], &pipe[21], &pipe[12], &pipe[13]}, {&pipe[19]});
+    drawKeypoint.bindStream({&pipe[19], &pipe[14]}, {&pipe[20]});
+    keypointToBndBox.bindStream({&pipe[19]}, {&pipe[22]});
+    timeUpdate.bindStream({&pipe[19], &pipe[22]}, {&pipe[24], &pipe[25]});
     imshow_kp.bindStream(&pipe[20], avp::AVP_STREAM_IN);
 
-    avp::StreamPacket inData(rawFrame, 0);
-    pipe[0].loadPacket(inData);
+    avp::StreamPacket nullData(avp::AVP_TENSOR, 0);
+    pipe[24].loadPacket(nullData);
+    pipe[25].loadPacket(nullData); 
     // while(1)
+    for(int i=0; i<2; i++)
     {
+        auto frame = cv::imread(testImg);
+        avp::StreamPacket inData(frame, i);
+        pipe[0].loadPacket(inData);
         // videoSrc.process();
         // std::cout<<"videoSrc pass!\n";
         crop.process();
-        // std::cout<<"crop pass!\n";
+        std::cout<<"crop pass!\n";
+        multiplexer.process();
+        std::cout<<"multiplexer pass!\n";
+        std::cout<<pipe[23].empty()<<"\n";
         normalization.process();
-        // std::cout<<"normalization pass!\n";
+        std::cout<<"normalization pass!\n";
         matToTensor.process();
-        // std::cout<<"matToTensor pass!\n";
+        std::cout<<"matToTensor pass!\n";
         PalmCNN.process();
-        // std::cout<<"CNN pass!\n";
+        std::cout<<"CNN pass!\n";
         decodeBoxes.process();
-        // std::cout<<"decodeBoxes pass!\n";
+        std::cout<<"decodeBoxes pass!\n";
         NMS.process();
-        // std::cout<<"NMS pass!\n";
+        std::cout<<"NMS pass!\n";
         drawDet.process();
-        // std::cout<<"drawDet pass!\n";
+        std::cout<<"drawDet pass!\n";
         imshow.process();
-        // std::cout<<"imshow pass!\n";
-        rotateCropResize.process();
-        // std::cout<<"rotateCropResize pass!\n";
+        std::cout<<"imshow pass!\n";
+        streamMerger.process();
+        std::cout<<"streamMerger pass!\n";
         normalization2.process();
-        // std::cout<<"normalization2 pass!\n";
+        std::cout<<"normalization2 pass!\n";
         multiCropToTensor.process();
-        // std::cout<<"multiCropToTensor pass!\n";
+        std::cout<<"multiCropToTensor pass!\n";
+        std::cout<<pipe[16].front().tensor().sizes()<<"\n";
         HandCNN.process();
-        // std::cout<<"HandCNN pass!\n";
+        std::cout<<"HandCNN pass!\n";
+        std::cout<<pipe[17].front().tensor().sizes()<<"\n";
         rotateBack.process();
-        // std::cout<<"rotateBack pass!\n";
-        // std::cout<<pipe[19].front().tensor().sizes()<<"\n";
+        std::cout<<"rotateBack pass!\n";
         drawKeypoint.process();
-        // std::cout<<"drawKeypoint pass!\n";
-        imshow_kp.process();
-        // std::cout<<"imshow_kp pass!\n";
+        std::cout<<"drawKeypoint pass!\n";
         keypointToBndBox.process();
-        std::cout<<pipe[22].front().tensor().sizes()<<"\n";
+        std::cout<<"keypointToBndBox pass!\n";
+        timeUpdate.process();
+        std::cout<<"timeUpdate pass!\n";
+        // For debug
+        auto det_boxes = pipe[25].front().tensor().accessor<float, 2>();
+        auto showFrame = pipe[20].front().mat();
+        auto ymin = det_boxes[i][0];
+        auto xmin = det_boxes[i][1];
+        auto ymax = det_boxes[i][2];
+        auto xmax = det_boxes[i][3];
+        cv::rectangle(showFrame, cv::Rect(xmin, ymin, xmax-xmin, ymax-ymin), {0,255,0});
+        // ---
+        imshow_kp.process();
+        std::cout<<"imshow_kp pass!\n";
     }
 }

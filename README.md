@@ -43,17 +43,21 @@ Base Classes (in `avpipe/base.hpp`):
   * Processing
     
     * **Note:** right now each call **only Process one** packet.
-  
+
   **TODO:**
-  
+
   * [ ] Combine/operator+
-  * [ ] Multiplexer
-  * [ ] Placeholder to bypass empty checking
+  * [x] Multiplexer: 
+    * [x] Implemented by `TemplateProcessor`
+  * [x] Placeholder to bypass empty checking
   * [x] 🌟Try to simplify the processing of user-defined processors:
     * [x] Lambda Function & Function Pointer
-  
+    * [x] Implemented by `TemplateProcessor`
+  * [x] Redesign the empty check condition flow, to avoid partial empty cases, make sure all inStreams having the same behavior.    
+  * [ ] When auto-generate pipeline, make sure to scan all input Stream to avoid empty streams. nullPacket is a necessary placeholder!
+
   Processors:
-  
+
   * [x] Packaging NN inference engine, into universal API
     
       * [x] ONNX RT
@@ -83,9 +87,9 @@ Base Classes (in `avpipe/base.hpp`):
           * [x] Bounding Boxes
       
   * [ ] YAML representation of Pipeline [ref1](https://cloud.tencent.com/developer/article/1423468), [ref2](https://github.com/jbeder/yaml-cpp)
-  
+
   * [ ] Code/Proc auto-generating
-  
+
 * [ ] Samples:
 
   * [x] Pose Estimation

@@ -284,9 +284,7 @@ class LandMarkToDet: public PipeProcessor {
     Tensor selectedPointIdx;
 
 public:
-    LandMarkToDet(string pp_name=""): PipeProcessor(1,1,AVP_TENSOR,pp_name,STREAM_PROC)
-    {}
-    LandMarkToDet(std::vector<int>& points_idx, string pp_name=""): PipeProcessor(1,1,AVP_TENSOR,pp_name,STREAM_PROC),
+    LandMarkToDet(std::vector<int> points_idx={}, string pp_name=""): PipeProcessor(1,1,AVP_TENSOR,pp_name,STREAM_PROC),
         selectedPointIdx_vec(points_idx)
     {
         selectedPointIdx = torch::from_blob(selectedPointIdx_vec.data(), {(int)selectedPointIdx_vec.size()}, torch::kI32).to(torch::kI64);

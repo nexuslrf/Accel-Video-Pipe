@@ -31,26 +31,14 @@ int main()
     avp::Stream pipe[10];
     
     videoSrc.bindStream(&pipe[0], avp::AVP_STREAM_OUT);
-    crop.bindStream(&pipe[0], avp::AVP_STREAM_IN);
-    crop.bindStream(&pipe[1], avp::AVP_STREAM_OUT);
-    normalization.bindStream(&pipe[1], avp::AVP_STREAM_IN);
-    normalization.bindStream(&pipe[2], avp::AVP_STREAM_OUT);
-    matToTensor.bindStream(&pipe[2], avp::AVP_STREAM_IN);
-    matToTensor.bindStream(&pipe[3], avp::AVP_STREAM_OUT);
-    CNN.bindStream(&pipe[3], avp::AVP_STREAM_IN);
-    CNN.bindStream(&pipe[4], avp::AVP_STREAM_OUT);
-    filter.bindStream(&pipe[4], avp::AVP_STREAM_IN);
-    filter.bindStream(&pipe[5], avp::AVP_STREAM_OUT);
-    maxPred.bindStream(&pipe[4], avp::AVP_STREAM_IN);
-    maxPred.bindStream(&pipe[6], avp::AVP_STREAM_OUT);
-    maxPred.bindStream(&pipe[9], avp::AVP_STREAM_OUT);
-    getKeypoint.bindStream(&pipe[5], avp::AVP_STREAM_IN);
-    getKeypoint.bindStream(&pipe[6], avp::AVP_STREAM_IN);
-    getKeypoint.bindStream(&pipe[7], avp::AVP_STREAM_OUT);
-    draw.bindStream(&pipe[7], avp::AVP_STREAM_IN);
-    draw.bindStream(&pipe[1], avp::AVP_STREAM_IN);
-    draw.bindStream(&pipe[9], avp::AVP_STREAM_IN);
-    draw.bindStream(&pipe[8], avp::AVP_STREAM_OUT);
+    crop.bindStream({&pipe[0]}, {&pipe[1]});
+    normalization.bindStream({&pipe[1]}, {&pipe[2]});
+    matToTensor.bindStream({&pipe[2]}, {&pipe[3]});
+    CNN.bindStream({&pipe[3]}, {&pipe[4]});
+    filter.bindStream({&pipe[4]}, {&pipe[5]});
+    maxPred.bindStream({&pipe[4]}, {&pipe[6], &pipe[9]});
+    getKeypoint.bindStream({&pipe[5]}, {&pipe[6], &pipe[7]});
+    draw.bindStream({&pipe[7], &pipe[1], &pipe[9]}, {&pipe[8]});
     imshow.bindStream(&pipe[8], avp::AVP_STREAM_IN);
 
     // avp::StreamPacket inData(rawFrame, 0);
