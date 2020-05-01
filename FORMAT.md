@@ -14,12 +14,12 @@ Prototype yaml file:
 pipeProcessor: ONNXRuntimeProcessor
 label: handDetection # label will also passed to pp_name 
 args:
-	dims: [1, 3, 256, 256]
-	data_layout: NCHW
-	model_path: ./net.onnx
-	num_output: 2
+  dims: [1, 3, 256, 256]
+  data_layout: NCHW
+  model_path: ./net.onnx
+  num_output: 2
 binding: # indicate all inStreams
 - label: normalization
-	out_idx: 0 # may need optimized, add alias for out_idx
+  out_idx: 0 # may need optimized, add alias for out_idx
 ```
 
