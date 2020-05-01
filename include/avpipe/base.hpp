@@ -280,8 +280,8 @@ public:
                 in_data_list.push_back(in_data); 
                 // No matter what case, in_data_list will be generated
         }
-
-        timeTick = tmp_time;
+        if(numInStreams)
+            timeTick = tmp_time;
         assert(timeTick >= 0);
         //  timeTick >= 0;
 

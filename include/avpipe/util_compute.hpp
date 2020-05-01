@@ -23,7 +23,9 @@ public:
     TimeUpdater(int num_stream, int time_step=1, PackType out_data_type=AVP_TENSOR, 
             string pp_name="", PPType process_type=STREAM_PROC): 
         PipeProcessor(num_stream, num_stream, out_data_type, pp_name, process_type), timeStep(time_step)
-    {}
+    {
+        skipEmptyCheck = true;
+    }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         for(size_t i=0; i<numInStreams; i++)

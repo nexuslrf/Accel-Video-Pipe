@@ -8,12 +8,13 @@ class DrawLandMarks: public PipeProcessor{
 public:
     float heightScale, widthScale;
     int heightOffset, widthOffset;
+    int radius;
     float probThres;
     Tensor probs;
     cv::Scalar color;
-    DrawLandMarks(float h_scale=1.0, float w_scale=1.0, int h_offset=0, int w_offset=0, float prob_thres=0, cv::Scalar c={0,0,255}, std::string pp_name=""): 
+    DrawLandMarks(float h_scale=1.0, float w_scale=1.0, int h_offset=0, int w_offset=0, float prob_thres=0, int r=2, cv::Scalar c={0,0,255}, std::string pp_name=""): 
         PipeProcessor(2, 1, AVP_MAT, pp_name, STREAM_PROC), heightScale(h_scale), widthScale(w_scale), 
-        heightOffset(h_offset), widthOffset(w_offset), probThres(prob_thres), color(c)
+        heightOffset(h_offset), widthOffset(w_offset), radius(r), probThres(prob_thres), color(c)
     {
         if(probThres!=0)
             numInStreams = 3;
@@ -50,7 +51,7 @@ public:
                 {
                     x = rawCoords_a[i][j][0] * widthScale + widthOffset;
                     y = rawCoords_a[i][j][1] * heightScale + heightOffset;
-                    cv::circle(showFrame, cv::Point(x,y), 2, color);
+                    cv::circle(showFrame, cv::Point(x,y), radius, color);
                 }
             }
         }

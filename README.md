@@ -54,7 +54,8 @@ Base Classes (in `avpipe/base.hpp`):
     * [x] Lambda Function & Function Pointer
     * [x] Implemented by `TemplateProcessor`
   * [x] Redesign the empty check condition flow, to avoid partial empty cases, make sure all inStreams having the same behavior.    
-  * [ ] When auto-generate pipeline, make sure to scan all input Stream to avoid empty streams. nullPacket is a necessary placeholder!
+  * [x] When auto-generate pipeline, make sure to scan all input Streams to avoid empty streams. `nullPacket` is a necessary placeholder!
+  * [ ] Find a better way to output debug info/logs 
 
   Processors:
 
