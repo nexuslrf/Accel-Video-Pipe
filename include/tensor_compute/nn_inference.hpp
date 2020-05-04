@@ -13,7 +13,8 @@ namespace avp {
 enum IEType {
     ONNX_RT = 0,
     OPENVINO = 1,
-    LIBTORCH = 2
+    LIBTORCH = 2,
+    TENSORRT = 3
 };
 
 enum DataLayout {

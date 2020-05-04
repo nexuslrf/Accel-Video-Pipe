@@ -2,6 +2,9 @@
 #include <tensor_compute/libtorch.hpp>
 #include <tensor_compute/openvino.hpp>
 #include <tensor_compute/onnx_runtime.hpp>
+#ifdef _TENSORRT
+#include <tensor_compute/tensorrt.hpp>
+#endif
 #include <avpipe/base.hpp>
 
 int main()
@@ -25,8 +28,8 @@ int main()
         CNN.process();
         std::cout<<"Finish Processing\n    Output Sizes:";
         auto outData = outStream.front();
-        std::cout<<outData.tensor.sizes()<<std::endl;
-        std::cout<<"    Sum of Output: "<<outData.tensor.sum()<<std::endl;
+        std::cout<<outData.tensor().sizes()<<std::endl;
+        std::cout<<"    Sum of Output: "<<outData.tensor().sum()<<std::endl;
     }
     /* OpenVINO CPU */
     {
@@ -43,8 +46,8 @@ int main()
         CNN.process();
         std::cout<<"Finish Processing\n    Output Sizes:";
         auto outData = outStream.front();
-        std::cout<<outData.tensor.sizes()<<std::endl;
-        std::cout<<"    Sum of Output: "<<outData.tensor.sum()<<std::endl;
+        std::cout<<outData.tensor().sizes()<<std::endl;
+        std::cout<<"    Sum of Output: "<<outData.tensor().sum()<<std::endl;
     }
     /* ONNX Runtime */
     {
@@ -61,7 +64,27 @@ int main()
         CNN.process();
         std::cout<<"Finish Processing\n    Output Sizes:";
         auto outData = outStream.front();
-        std::cout<<outData.tensor.sizes()<<std::endl;
-        std::cout<<"    Sum of Output: "<<outData.tensor.sum()<<std::endl;
+        std::cout<<outData.tensor().sizes()<<std::endl;
+        std::cout<<"    Sum of Output: "<<outData.tensor().sum()<<std::endl;
     }
+    /* TensorRT */
+    #ifdef _TENSORRT
+    {
+        avp::Stream inStream, outStream;
+        std::cout<<"============\nTensorRT Test:\n";
+        std::string model_path = model_name+".onnx";
+        avp::TensorRTProcessor CNN(dims, avp::NCHW, model_path);
+        std::cout<<"Bind data stream\n";
+        CNN.bindStream(&inStream, avp::AVP_STREAM_IN);
+        CNN.bindStream(&outStream, avp::AVP_STREAM_OUT);
+        std::cout<<"Load data packet\n";
+        inStream.loadPacket(inData); //inStream.loadPacket(endPacket);
+        std::cout<<"Start Processing\n";
+        CNN.process();
+        std::cout<<"Finish Processing\n    Output Sizes:";
+        auto outData = outStream.front();
+        std::cout<<outData.tensor().sizes()<<std::endl;
+        std::cout<<"    Sum of Output: "<<outData.tensor().sum()<<std::endl;
+    }
+    #endif
 }

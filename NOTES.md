@@ -54,3 +54,15 @@ D-->E[Show Results]
 D-->B
 A-->D
 ```
+
+TensorRT workflow
+
+```mermaid
+graph TD
+A[initializeSampleParams, file_dir, bs, null_engine etc.]-->B[Build#1: init builder, network, config, onnxparser]
+B-->C[Build#2: construct: Network, mEngine]
+C-->D[Infer#1: BufferManager, context, processInput to Device]
+D-->E[Infer#2: Execute, copyOutputToHost]
+
+```
+
