@@ -40,9 +40,9 @@ public:
 class PredToKeypoint: public PipeProcessor {
 public:
     int sigma;
-    PredToKeypoint(std::string pp_name=""): PipeProcessor(2, 1, AVP_TENSOR, pp_name, STREAM_PROC)
+    PredToKeypoint(int sigma_val=2, std::string pp_name=""): PipeProcessor(2, 1, AVP_TENSOR, pp_name, STREAM_PROC)
     {
-        sigma = 2;
+        sigma = sigma_val;
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {

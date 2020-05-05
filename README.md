@@ -64,8 +64,8 @@ Base Classes (in `avpipe/base.hpp`):
       * [x] ONNX RT
       * [x] OpenVINO
       * [x] LibTorch
-    * [ ] TensorRT
-    * [ ] Cloud API: consider *openSSH*
+    * [x] TensorRT
+    * [ ] Cloud API: consider *gRPC*
     
     TODO: 
     
@@ -87,18 +87,21 @@ Base Classes (in `avpipe/base.hpp`):
           * [x] LandMarks
           * [x] Bounding Boxes
       
-  * [ ] YAML representation of Pipeline [ref1](https://cloud.tencent.com/developer/article/1423468), [ref2](https://github.com/jbeder/yaml-cpp)
-
-  * [ ] Code/Proc auto-generating
 
 * [ ] Samples:
 
   * [x] Pose Estimation
-  * [ ] Hand Tracking
+  * [x] Hand Tracking
 
+------
+
+* [ ] Automation: use Python here...
+* [ ] Visualization
+  * [ ] Code auto-gen
+    * [ ] Yaml to code
+    * [ ] Code to Yaml
 * [ ] Pipeline Optimization
-
-  * [ ] CPU:
+* [ ] CPU:
     * [ ] Trade-off between #Threads vs. #Cores
   * [ ] Heterogeneous Arch:
     * [ ] Thread allocation & scheduling

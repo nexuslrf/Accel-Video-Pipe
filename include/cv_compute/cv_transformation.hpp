@@ -105,8 +105,8 @@ public:
     bool keepSquare, returnCrop;
     Tensor sizeScale;
     RotateCropResize(int dst_h, int dst_w, float h_scale, float w_scale, int obj_up_id=2, int obj_down_id=0, float shift_y=0.5, float shift_x=0.0,
-            float box_scale=2.6, bool keep_square=true, bool ret_crop=true, PackType out_type=AVP_MAT, string pp_name=""): 
-        PipeProcessor(3,3,out_type,pp_name,STREAM_PROC), dstHeight(dst_h), dstWidth(dst_w), objUpIdx(obj_up_id), objDownIdx(obj_down_id), 
+            float box_scale=2.6, bool keep_square=true, bool ret_crop=true, string pp_name=""): 
+        PipeProcessor(3,3, AVP_MAT ,pp_name,STREAM_PROC), dstHeight(dst_h), dstWidth(dst_w), objUpIdx(obj_up_id), objDownIdx(obj_down_id), 
         shiftY(shift_y), shiftX(shift_x), boxScale(box_scale), keepSquare(keep_square), returnCrop(ret_crop)
     {
         sizeScale = torch::empty({1,4}, torch::kF32);

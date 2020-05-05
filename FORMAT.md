@@ -6,7 +6,7 @@ Here we use a opensourced c++ yaml parser [lib](https://github.com/jbeder/yaml-c
 
 The major part of the stream pipe processing is to define and configure each PipeProcessors. This would be very similar with caffe's prototxt file (maybe...)
 
-Useful link: [Grammar for YAML](https://www.runoob.com/w3cnote/yaml-intro.html)
+Useful link: [Grammar for YAML](https://www.runoob.com/w3cnote/yaml-intro.html), [blog](https://www.cnblogs.com/sddai/p/9626392.html)
 
 Prototype yaml file:
 
@@ -23,3 +23,10 @@ binding: # indicate all inStreams
   out_idx: 0 # may need optimized, add alias for out_idx
 ```
 
+**Problems:**
+
+* Unefficiency
+* How deal with Lambda Functions
+* Python or C++ auto-gen?
+
+Long long way to go for the real implementation...

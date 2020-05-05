@@ -1,0 +1,76 @@
+- pipeProcessor: VideoFileProcessor
+  namespace: avp # default namespace is avp
+  label: videoSrc
+  args:
+    file_path: /Users/liangruofan1/Program/Accel-Video-Pipe/test_data/kunkun_nmsl.mp4
+
+- pipeProcessor: CenterCropResize
+  label: crop
+  args:
+    src_height: videoSrc.rawHeight
+    src_width: videoSrc.rawWidth
+    dst_height: 256
+    dst_width: 192
+  binding:
+  - label: videoSrc # default idx is 0
+
+- pipeProcessor: ImgNormalization
+  label: normalization
+  args:
+    mean_var: {0.485, 0.456, 0.406}
+    stdev_var: {0.229, 0.224, 0.225}
+  binding:
+  - label: crop
+
+- pipeProcessor: DataLayoutConvertion
+  label: matToTensor
+  binding:
+  - label: normalization
+
+- pipeProcessor: OpenVinoProcessor
+  label: CNN
+  args:
+    input_dims: {1,3,256,192}
+    data_layout: NCHW
+    model_path: /Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192
+  binding:
+  - label: matToTensor
+
+- pipeProcessor: LibTorchProcessor
+  label: filter
+  args:
+    input_dims: {1,17,64,48}
+    data_layout: NCHW
+    model_path: /Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/gaussian_modulation.zip
+  binding:
+  - label: CNN
+
+- pipeProcessor: LandMarkMaxPred
+  label: maxPred
+  binding:
+  - label: CNN
+
+- pipeProcessor: PredToKeypoint
+  label: getKeypoint
+  binding:
+  - label: filter
+
+- pipeProcessor: DrawLandMarks
+  label: draw
+  args:
+    h_scale: 64
+    w_scale: 48
+    prob_thres: 0.3
+  binding:
+  - label: getKeypoint
+    idx: 1
+  - label: crop
+  - label: maxPred
+    idx: 1
+
+- pipeProcessor: StreamShowProcessor
+  label: imshow
+  args:
+    wait_time: 1
+  binding:
+  - label: draw

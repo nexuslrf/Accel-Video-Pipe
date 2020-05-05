@@ -1,0 +1,153 @@
+- pipeProcessor: WebCamProcessor
+  label: videoSrc
+
+- pipeProcessor: CenterCropResize
+  label: crop
+  args:
+    src_height: videoSrc.rawHeight
+    src_width: videoSrc.rawWidth
+    dst_height: 256
+    dst_width: 256
+    flip_img: true
+    return_crop: true
+  binding:
+  - label: videoSrc
+
+- pipeProcessor: TemplateProcessor
+  label: multiplexer
+  args:
+    num_input: 2
+    num_output: 1
+    func_ptr: |
+      [&multiplexer](avp::DataList& in_data_list, avp::DataList& out_data_list){
+        if(multiplexer.timeTick%5==0||in_data_list[0].empty())
+        {
+            std::cout<<"----------palm branch!----------\n";
+            avp::Mat frame = in_data_list[1].mat();
+            out_data_list[0].loadData(frame);
+        }
+      }
+    out_data_type: AVP_MAT
+  binding:
+  - label: timeUpdate
+    idx: 1
+  - label: crop
+    idx: 0
+
+- pipeProcessor: ImgNormalization
+  label: normalization
+  args:
+    mean_var: 0.5
+    stdev_var: 0.5
+  binding:
+  - label: multiplexer
+
+- pipeProcessor: DataLayoutConvertion
+  label: matToTensor
+
+- pipeProcessor: ONNXRuntimeProcessor
+  label: PalmCNN
+  args:
+    dims: {1,3,256,256}
+    data_layout: NCHW
+    model_path: /Users/liangruofan1/Program/CV_Models/palm_detector/palm_detection.onnx
+    num_output: 2
+
+- pipeProcessor: DecodeDetBoxes
+  label: decodeBoxes
+  args:
+    num_anchor: 2944
+    anchor_file: /Users/liangruofan1/Program/CV_Models/palm_detector/anchors.bin
+    dst_h: 256
+    dst_w: 256
+    num_keypts: 7
+
+- pipeProcessor: NonMaxSuppression
+  label: NMS
+  args:
+    num_keypts: 21
+
+- pipeProcessor: RotateCropResize
+  label: palmRotateCropResize
+  args:
+    dst_h: 256
+    dst_w: 256
+    h_scale: crop.cropHeight
+    w_scale: crop.cropWidth
+    obj_up_id: 2
+    obj_down_id: 0
+    shift_y: 0.5
+    shift_x: 0
+    box_scale: 2.6 
+
+- pipeProcessor: DataLayoutConvertion
+  label: multiCropToTensor
+
+- pipeProcessor: ImgNormalization
+  label: normalization2
+  args:
+    mean_var: 0.5
+    stdev_var: 0.5
+
+- pipeProcessor: ONNXRuntimeProcessor
+  label: HandCNN
+  args:
+    dims: {0,3,256,256}
+    data_layout: NCHW
+    model_path: /Users/liangruofan1/Program/CV_Models/hand_keypoint_3d/blaze_hand.onnx
+    num_output: 2
+
+- pipeProcessor: RotateBack
+  label: rotateBack
+
+- pipeProcessor: DrawLandMarks
+  label: drawKeypoint
+
+- pipeProcessor: StreamShowProcessor
+  label: imshow_kp
+  args:
+    wait_time: 100
+
+- pipeProcessor: LandMarkToDet
+  label: keypointToBndBox
+  args:
+    points_idx: {0, 1, 2, 3, 5, 6, 9, 10, 13, 14, 17, 18}
+
+- pipeProcessor: RotateCropResize
+  label: palmRotateCropResize
+  args:
+    dst_h: 256
+    dst_w: 256
+    h_scale: 1
+    w_scale: 1
+    obj_up_id: 9
+    obj_down_id: 0
+    shift_y: 0
+    shift_x: 0
+    box_scale: 2.1 
+
+- pipeProcessor: TemplateProcessor
+  label: streamMerger
+  args:
+    num_input: 2
+    num_output: 1
+    func_ptr: |
+      [&](avp::DataList& in_data_list, avp::DataList& out_data_list){
+          if(!streamMerger.checkEmpty(0, 2))
+          {
+              auto palmStreams = avp::DataList({in_data_list[0], in_data_list[1], in_data_list[4]});
+              palmRotateCropResize.run(palmStreams, out_data_list);
+          }
+          else if(!streamMerger.checkEmpty(2, 4))
+          {
+              std::cout<<"hello wtf?\n";
+              auto handStreams = avp::DataList({in_data_list[2], in_data_list[3], in_data_list[4]});
+              handRotateCropResize.run(handStreams, out_data_list);
+          }
+      }
+    out_data_type: AVP_MAT
+
+- pipeProcessor: TimeUpdater
+  label: timeUpdate
+  args:
+    num_stream: 2
