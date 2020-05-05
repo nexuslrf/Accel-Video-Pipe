@@ -23,7 +23,7 @@
     w_offset: 0
     prob_thres: 0
     r: 2
-    c: {0, 0, 255}
+    c: [0, 0, 255]
   inStreams: 
   - label: landMarks
   - label: matImage
@@ -41,7 +41,7 @@
     h_offset: 0
     w_offset: 0
     prob_thres: 0
-    c: {0, 255, 0}
+    c: [0, 255, 0]
   inStreams: 
   - label: boundingBoxes
   - label: matImage
@@ -276,7 +276,7 @@
   namespace: AVP
   label: AVP::REQUIRED
   args:
-    points_idx: {}
+    points_idx: []
   inStreams:
   - label: keypointsTensor
   outStreams:

@@ -1,10 +1,10 @@
-- pipeProcessor: VideoFileProcessor
+- PipeProcessor: VideoFileProcessor
   namespace: avp # default namespace is avp
   label: videoSrc
   args:
     file_path: /Users/liangruofan1/Program/Accel-Video-Pipe/test_data/kunkun_nmsl.mp4
 
-- pipeProcessor: CenterCropResize
+- PipeProcessor: CenterCropResize
   label: crop
   args:
     src_height: videoSrc.rawHeight
@@ -14,7 +14,7 @@
   binding:
   - label: videoSrc # default idx is 0
 
-- pipeProcessor: ImgNormalization
+- PipeProcessor: ImgNormalization
   label: normalization
   args:
     mean_var: {0.485, 0.456, 0.406}
@@ -22,12 +22,12 @@
   binding:
   - label: crop
 
-- pipeProcessor: DataLayoutConvertion
+- PipeProcessor: DataLayoutConvertion
   label: matToTensor
   binding:
   - label: normalization
 
-- pipeProcessor: OpenVinoProcessor
+- PipeProcessor: OpenVinoProcessor
   label: CNN
   args:
     input_dims: {1,3,256,192}
@@ -36,7 +36,7 @@
   binding:
   - label: matToTensor
 
-- pipeProcessor: LibTorchProcessor
+- PipeProcessor: LibTorchProcessor
   label: filter
   args:
     input_dims: {1,17,64,48}
@@ -45,17 +45,17 @@
   binding:
   - label: CNN
 
-- pipeProcessor: LandMarkMaxPred
+- PipeProcessor: LandMarkMaxPred
   label: maxPred
   binding:
   - label: CNN
 
-- pipeProcessor: PredToKeypoint
+- PipeProcessor: PredToKeypoint
   label: getKeypoint
   binding:
   - label: filter
 
-- pipeProcessor: DrawLandMarks
+- PipeProcessor: DrawLandMarks
   label: draw
   args:
     h_scale: 64
@@ -68,7 +68,7 @@
   - label: maxPred
     idx: 1
 
-- pipeProcessor: StreamShowProcessor
+- PipeProcessor: StreamShowProcessor
   label: imshow
   args:
     wait_time: 1

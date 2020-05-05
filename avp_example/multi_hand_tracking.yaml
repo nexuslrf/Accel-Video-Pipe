@@ -1,7 +1,7 @@
-- pipeProcessor: WebCamProcessor
+- PipeProcessor: WebCamProcessor
   label: videoSrc
 
-- pipeProcessor: CenterCropResize
+- PipeProcessor: CenterCropResize
   label: crop
   args:
     src_height: videoSrc.rawHeight
@@ -13,7 +13,7 @@
   binding:
   - label: videoSrc
 
-- pipeProcessor: TemplateProcessor
+- PipeProcessor: TemplateProcessor
   label: multiplexer
   args:
     num_input: 2
@@ -34,7 +34,7 @@
   - label: crop
     idx: 0
 
-- pipeProcessor: ImgNormalization
+- PipeProcessor: ImgNormalization
   label: normalization
   args:
     mean_var: 0.5
@@ -42,10 +42,10 @@
   binding:
   - label: multiplexer
 
-- pipeProcessor: DataLayoutConvertion
+- PipeProcessor: DataLayoutConvertion
   label: matToTensor
 
-- pipeProcessor: ONNXRuntimeProcessor
+- PipeProcessor: ONNXRuntimeProcessor
   label: PalmCNN
   args:
     dims: {1,3,256,256}
@@ -53,7 +53,7 @@
     model_path: /Users/liangruofan1/Program/CV_Models/palm_detector/palm_detection.onnx
     num_output: 2
 
-- pipeProcessor: DecodeDetBoxes
+- PipeProcessor: DecodeDetBoxes
   label: decodeBoxes
   args:
     num_anchor: 2944
@@ -62,12 +62,12 @@
     dst_w: 256
     num_keypts: 7
 
-- pipeProcessor: NonMaxSuppression
+- PipeProcessor: NonMaxSuppression
   label: NMS
   args:
     num_keypts: 21
 
-- pipeProcessor: RotateCropResize
+- PipeProcessor: RotateCropResize
   label: palmRotateCropResize
   args:
     dst_h: 256
@@ -80,16 +80,16 @@
     shift_x: 0
     box_scale: 2.6 
 
-- pipeProcessor: DataLayoutConvertion
+- PipeProcessor: DataLayoutConvertion
   label: multiCropToTensor
 
-- pipeProcessor: ImgNormalization
+- PipeProcessor: ImgNormalization
   label: normalization2
   args:
     mean_var: 0.5
     stdev_var: 0.5
 
-- pipeProcessor: ONNXRuntimeProcessor
+- PipeProcessor: ONNXRuntimeProcessor
   label: HandCNN
   args:
     dims: {0,3,256,256}
@@ -97,23 +97,23 @@
     model_path: /Users/liangruofan1/Program/CV_Models/hand_keypoint_3d/blaze_hand.onnx
     num_output: 2
 
-- pipeProcessor: RotateBack
+- PipeProcessor: RotateBack
   label: rotateBack
 
-- pipeProcessor: DrawLandMarks
+- PipeProcessor: DrawLandMarks
   label: drawKeypoint
 
-- pipeProcessor: StreamShowProcessor
+- PipeProcessor: StreamShowProcessor
   label: imshow_kp
   args:
     wait_time: 100
 
-- pipeProcessor: LandMarkToDet
+- PipeProcessor: LandMarkToDet
   label: keypointToBndBox
   args:
     points_idx: {0, 1, 2, 3, 5, 6, 9, 10, 13, 14, 17, 18}
 
-- pipeProcessor: RotateCropResize
+- PipeProcessor: RotateCropResize
   label: palmRotateCropResize
   args:
     dst_h: 256
@@ -126,7 +126,7 @@
     shift_x: 0
     box_scale: 2.1 
 
-- pipeProcessor: TemplateProcessor
+- PipeProcessor: TemplateProcessor
   label: streamMerger
   args:
     num_input: 2
@@ -147,7 +147,7 @@
       }
     out_data_type: AVP_MAT
 
-- pipeProcessor: TimeUpdater
+- PipeProcessor: TimeUpdater
   label: timeUpdate
   args:
     num_stream: 2

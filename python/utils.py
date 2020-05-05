@@ -19,7 +19,17 @@ def read_yaml(yaml_file):
 
     return yaml.load(file_data, Loader=yaml.FullLoader)
 
+def default_configs_map(default_configs_yaml="../include/default-configs.yaml"):
+    configs_list = read_yaml(default_configs_yaml)
+    configs_map = dict()
+    for cfg in configs_list:
+        configs_map[cfg['PipeProcessor']] = cfg
+    return configs_map
+
+# make sure custom configs have right args
+def configs_checking(task_configs_list, default_configs_map):
+    pass
+
 if __name__ == "__main__":
-    yaml_path = "/Users/liangruofan1/Program/Accel-Video-Pipe/test_python/test_yaml.yaml"
-    config = read_yaml(yaml_path)
-    print(config[0]['label'])
+    configs_map = default_configs_map("/Users/liangruofan1/Program/Accel-Video-Pipe/include/default-configs.yaml")
+    print(configs_map['DrawDetBoxes']['args']['c'])
