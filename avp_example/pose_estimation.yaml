@@ -54,6 +54,7 @@
   label: getKeypoint
   binding:
   - label: filter
+  - label: maxPred
 
 - PipeProcessor: DrawLandMarks
   label: draw
@@ -63,7 +64,6 @@
     prob_thres: 0.3
   binding:
   - label: getKeypoint
-    idx: 1
   - label: crop
   - label: maxPred
     idx: 1

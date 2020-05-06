@@ -10,7 +10,7 @@
     show_name: ""
   inStreams:
   - label: matImage
-  outStreams: NULL
+  outStreams: []
 
 # --- cv_rendering.hpp ---
 - PipeProcessor: DrawLandMarks
@@ -56,7 +56,7 @@
   label: AVP::REQUIRED
   args:
     file_path: AVP::REQUIRED
-  inStreams: NULL
+  inStreams: []
   outStreams:
   - label: matImage
 
@@ -65,7 +65,7 @@
   label: AVP::REQUIRED
   args:
     cam_id: 0 
-  inStreams: NULL
+  inStreams: []
   outStreams:
   - label: matImage
 
@@ -304,10 +304,10 @@
     func_ptr: NULL
     out_data_type: AVP_TENSOR
   inStreams:
-  - label: in[i]
+  - label: in[0]
     annotation: optional
   outStreams:
-  - label: out[i]
+  - label: out[0]
     annotation: optional
 
 - PipeProcessor: TimeUpdater
@@ -318,10 +318,10 @@
     time_step: 1
     out_data_type: AVP_TENSOR
   inStreams:
-  - label: in[i]
+  - label: in[0]
     annotation: optional
   outStreams:
-  - label: out[i]
+  - label: out[0]
     annotation: optional
 
 # - PipeProcessor:

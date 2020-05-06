@@ -37,7 +37,7 @@ int main()
     CNN.bindStream({&pipe[3]}, {&pipe[4]});
     filter.bindStream({&pipe[4]}, {&pipe[5]});
     maxPred.bindStream({&pipe[4]}, {&pipe[6], &pipe[9]});
-    getKeypoint.bindStream({&pipe[5]}, {&pipe[6], &pipe[7]});
+    getKeypoint.bindStream({&pipe[5], &pipe[6]}, {&pipe[7]});
     draw.bindStream({&pipe[7], &pipe[1], &pipe[9]}, {&pipe[8]});
     imshow.bindStream(&pipe[8], avp::AVP_STREAM_IN);
 

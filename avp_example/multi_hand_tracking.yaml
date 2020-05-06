@@ -44,6 +44,8 @@
 
 - PipeProcessor: DataLayoutConvertion
   label: matToTensor
+  binding:
+  - label: normalization
 
 - PipeProcessor: ONNXRuntimeProcessor
   label: PalmCNN
@@ -52,6 +54,8 @@
     data_layout: NCHW
     model_path: /Users/liangruofan1/Program/CV_Models/palm_detector/palm_detection.onnx
     num_output: 2
+  binding:
+  - label: matToTensor
 
 - PipeProcessor: DecodeDetBoxes
   label: decodeBoxes
