@@ -26,9 +26,9 @@ def default_configs_map(default_configs_yaml="../include/default-configs.yaml"):
         configs_map[cfg['PipeProcessor']] = cfg
     return configs_map
 
-# make sure custom configs have right args
-def configs_checking(task_configs_list, default_configs_map):
-    pass
+def print_err(info):
+    print(f"[AVP::Error] {info}")
+    exit()
 
 if __name__ == "__main__":
     configs_map = default_configs_map("/Users/liangruofan1/Program/Accel-Video-Pipe/include/default-configs.yaml")

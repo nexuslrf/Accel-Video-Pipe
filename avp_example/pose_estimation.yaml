@@ -30,7 +30,7 @@
 - PipeProcessor: OpenVinoProcessor
   label: CNN
   args:
-    input_dims: {1,3,256,192}
+    dims: {1,3,256,192}
     data_layout: NCHW
     model_path: /Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192
   binding:
@@ -39,7 +39,7 @@
 - PipeProcessor: LibTorchProcessor
   label: filter
   args:
-    input_dims: {1,17,64,48}
+    dims: {1,17,64,48}
     data_layout: NCHW
     model_path: /Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/gaussian_modulation.zip
   binding:

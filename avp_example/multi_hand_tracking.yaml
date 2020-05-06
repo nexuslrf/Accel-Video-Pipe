@@ -56,7 +56,7 @@
 - PipeProcessor: DecodeDetBoxes
   label: decodeBoxes
   args:
-    num_anchor: 2944
+    num_anchors: 2944
     anchor_file: /Users/liangruofan1/Program/CV_Models/palm_detector/anchors.bin
     dst_h: 256
     dst_w: 256
@@ -114,7 +114,7 @@
     points_idx: {0, 1, 2, 3, 5, 6, 9, 10, 13, 14, 17, 18}
 
 - PipeProcessor: RotateCropResize
-  label: palmRotateCropResize
+  label: handRotateCropResize
   args:
     dst_h: 256
     dst_w: 256
