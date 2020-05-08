@@ -97,6 +97,7 @@ class AVP_Automation:
                          "// Author: RF Liang, 2020\n"
         processor_definition = "// Start processor definition\n"
         pipe_binding = "// Start pipe binding\n"
+        running_pipe = "// Start running pipe\n"
         l_curly = "{"; r_curly = "}"
         default_includes = ['<iostream>', '<string>', '<vector>']
         avp_includes = []
@@ -146,11 +147,14 @@ class AVP_Automation:
         includes = default_includes + additional_includes + avp_includes
         for include in includes:
             include_header += f"#include {include}\n"
+
+        # running pipes
+        running_pipe += "std::cout<<\"AVP test pass!\\n\";"
         
         # combining
         cpp_text = include_header + \
                 f"\nint main()\n{l_curly}\n" + \
-                indent(f"{(processor_definition)}\n{pipe_binding}\n\nreturn 0;", " "*4)+ \
+                indent(f"{(processor_definition)}\n{pipe_binding}\n{running_pipe}\nreturn 0;", " "*4)+ \
                 f"\n{r_curly}"
 
         cpp_file = open(self.cpp_file_name, "w")
@@ -175,6 +179,12 @@ class AVP_Automation:
         fh = open(os.path.join(self.out_path, "CMakeLists.txt"), 'w')
         fh.write(cmakelists)
 
+    def cpp_run(self, script_file="avp_template/avp_build_and_run.sh"):
+        script_out = os.popen(f"bash {script_file} {self.out_path} {self.task_name}").read()
+        print("--- Bash Output ---")
+        print(script_out)
+
+
     def profile(self):
         pass
 
@@ -190,4 +200,5 @@ if __name__ == "__main__":
     # avp_task.visualize()
     avp_task.code_gen()
     avp_task.cmake_cpp()
+    avp_task.cpp_run()
     print("pass")
