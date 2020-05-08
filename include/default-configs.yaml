@@ -3,7 +3,8 @@
 
 # --- cv_display.hpp ---
 - PipeProcessor: StreamShowProcessor
-  namespace: AVP
+  namespace: avp
+  includeFile: cv_compute/cv_display.hpp
   label: AVP::REQUIRED
   args:
     wait_time: 1
@@ -14,7 +15,8 @@
 
 # --- cv_rendering.hpp ---
 - PipeProcessor: DrawLandMarks
-  namespace: AVP
+  namespace: avp
+  includeFile: cv_compute/cv_rendering.hpp
   label: AVP::REQUIRED
   args:
     h_scale: 1.0
@@ -33,7 +35,8 @@
   - label: matImage
 
 - PipeProcessor: DrawDetBoxes
-  namespace: AVP
+  namespace: avp
+  includeFile: cv_compute/cv_rendering.hpp
   label: AVP::REQUIRED
   args:
     h_scale: 1.0
@@ -52,7 +55,8 @@
 
 # --- cv_stream_src.hpp ---
 - PipeProcessor: VideoFileProcessor
-  namespace: AVP
+  namespace: avp
+  includeFile: cv_compute/cv_stream_src.hpp
   label: AVP::REQUIRED
   args:
     file_path: AVP::REQUIRED
@@ -61,7 +65,8 @@
   - label: matImage
 
 - PipeProcessor: WebCamProcessor
-  namespace: AVP
+  namespace: avp
+  includeFile: cv_compute/cv_stream_src.hpp
   label: AVP::REQUIRED
   args:
     cam_id: 0 
@@ -69,9 +74,10 @@
   outStreams:
   - label: matImage
 
-# --- cv_transformation.hpp
+# --- cv_transformation.hpp ---
 - PipeProcessor: CenterCropResize
-  namespace: AVP
+  namespace: avp
+  includeFile: cv_compute/cv_transformation.hpp
   label: AVP::REQUIRED
   args:
     src_height: AVP::REQUIRED
@@ -88,7 +94,8 @@
     annotation: optional
 
 - PipeProcessor: ImgNormalization
-  namespace: AVP
+  namespace: avp
+  includeFile: cv_compute/cv_transformation.hpp
   label: AVP::REQUIRED
   args:
     mean_var: 0.5
@@ -99,7 +106,8 @@
   - label: normalizedMatImage
 
 - PipeProcessor: RotateCropResize
-  namespace: AVP
+  namespace: avp
+  includeFile: cv_compute/cv_transformation.hpp
   label: AVP::REQUIRED
   args:
     dst_h:
@@ -123,7 +131,8 @@
   - label: rotCenters
 
 - PipeProcessor: RotateBack
-  namespace: AVP
+  namespace: avp
+  includeFile: cv_compute/cv_transformation.hpp
   label: AVP::REQUIRED
   args:
     model_h: 256
@@ -141,11 +150,12 @@
 
 # --- libtorch.hpp ---
 - PipeProcessor: LibTorchProcessor
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/libtorch.hpp
   label: AVP::REQUIRED
   args:
     dims: AVP::REQUIRED
-    data_layout: AVP::REQUIRED
+    data_layout: \`avp::NCHW`
     model_path: AVP::REQUIRED
     num_output: 1
   inStreams:
@@ -159,11 +169,12 @@
 
 # --- openvino.hpp ---
 - PipeProcessor: OpenVinoProcessor
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/openvino.hpp
   label: AVP::REQUIRED
   args:
     dims: AVP::REQUIRED
-    data_layout: AVP::REQUIRED
+    data_layout: \`avp::NCHW`
     model_path: AVP::REQUIRED
     num_output: 1
   inStreams:
@@ -177,11 +188,12 @@
 
 # --- onnx_runtime.hpp ---
 - PipeProcessor: ONNXRuntimeProcessor
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/onnx_runtime.hpp
   label: AVP::REQUIRED
   args:
     dims: AVP::REQUIRED
-    data_layout: AVP::REQUIRED
+    data_layout: \`avp::NCHW`
     model_path: AVP::REQUIRED
     num_output: 1
   inStreams:
@@ -195,11 +207,12 @@
 
 # --- tensorrt.hpp ---
 - PipeProcessor: TensorRTProcessor
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/tensorrt.hpp
   label: AVP::REQUIRED
   args:
     dims: AVP::REQUIRED
-    data_layout: AVP::REQUIRED
+    data_layout: \`avp::NCHW`
     model_path: AVP::REQUIRED
     workspace_size_MiB: 2048
     num_output: 1
@@ -212,9 +225,10 @@
   - label: others
     annotation: optional
 
-# --- det_postprocessing.hpp ---
+# --- det_postprocess.hpp ---
 - PipeProcessor: LandMarkMaxPred
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
   label: AVP::REQUIRED
   args:
     output_prob: true
@@ -226,7 +240,8 @@
     annotation: optional
 
 - PipeProcessor: PredToKeypoint
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp 
   label: AVP::REQUIRED
   args:
     sigma_val: 2
@@ -237,7 +252,8 @@
   - label: keypointsTensor
 
 - PipeProcessor: DecodeDetBoxes
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
   label: AVP::REQUIRED
   args:
     num_anchors: AVP::REQUIRED
@@ -251,7 +267,8 @@
   - label: detBoxesTensor
 
 - PipeProcessor: NonMaxSuppression
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
   label: AVP::REQUIRED
   args:
     num_keypts:
@@ -266,14 +283,16 @@
   - label: outLandMarksTensor
 
 - PipeProcessor:
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
   label: AVP::REQUIRED
   args:
   inStreams:
   outStreams:
 
 - PipeProcessor: LandMarkToDet
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
   label: AVP::REQUIRED
   args:
     points_idx: []
@@ -284,11 +303,12 @@
 
 # --- tensor_utils.hpp ---
 - PipeProcessor: DataLayoutConvertion
-  namespace: AVP
+  namespace: avp
+  includeFile: tensor_compute/tensor_utils.hpp
   label: AVP::REQUIRED
   args:
-    in_layout: NHWC
-    out_layout: NCHW
+    in_layout: \`avp::NHWC`
+    out_layout: \`avp::NCHW`
   inStreams:
   - label: NHWC_Tensor
   outStreams:
@@ -296,13 +316,14 @@
 
 # --- util_compute.hpp
 - PipeProcessor: TemplateProcessor
-  namespace: AVP
+  namespace: avp
+  includeFile: avpipe/util_compute.hpp
   label: AVP::REQUIRED
   args:
     num_input: AVP::REQUIRED 
     num_output: AVP::REQUIRED
     func_ptr: NULL
-    out_data_type: AVP_TENSOR
+    out_data_type: \`avp::AVP_TENSOR`
   inStreams:
   - label: in[0]
     annotation: optional
@@ -311,12 +332,13 @@
     annotation: optional
 
 - PipeProcessor: TimeUpdater
-  namespace: AVP
+  namespace: avp
+  includeFile: avpipe/util_compute.hpp
   label: AVP::REQUIRED
   args:
     num_stream: AVP::REQUIRED
     time_step: 1
-    out_data_type: AVP_TENSOR
+    out_data_type: \`avp::AVP_TENSOR`
   inStreams:
   - label: in[0]
     annotation: optional
@@ -324,8 +346,9 @@
   - label: out[0]
     annotation: optional
 
-# - PipeProcessor:
-#   namespace: AVP
+# - PipeProcessor:  
+#   namespace: avp
+#   includeFile:
 #   label: AVP::REQUIRED
 #   args:
 #   inStreams:

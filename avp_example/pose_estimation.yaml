@@ -7,8 +7,8 @@
 - PipeProcessor: CenterCropResize
   label: crop
   args:
-    src_height: videoSrc.rawHeight
-    src_width: videoSrc.rawWidth
+    src_height: \`videoSrc.rawHeight`
+    src_width: \`videoSrc.rawWidth`
     dst_height: 256
     dst_width: 192
   binding:
@@ -17,8 +17,8 @@
 - PipeProcessor: ImgNormalization
   label: normalization
   args:
-    mean_var: {0.485, 0.456, 0.406}
-    stdev_var: {0.229, 0.224, 0.225}
+    mean_var: [0.485, 0.456, 0.406]
+    stdev_var: [0.229, 0.224, 0.225]
   binding:
   - label: crop
 
@@ -30,8 +30,8 @@
 - PipeProcessor: OpenVinoProcessor
   label: CNN
   args:
-    dims: {1,3,256,192}
-    data_layout: NCHW
+    dims: [1,3,256,192]
+    data_layout: \`avp::NCHW`
     model_path: /Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192
   binding:
   - label: matToTensor
@@ -39,8 +39,7 @@
 - PipeProcessor: LibTorchProcessor
   label: filter
   args:
-    dims: {1,17,64,48}
-    data_layout: NCHW
+    dims: [1,17,64,48]
     model_path: /Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/gaussian_modulation.zip
   binding:
   - label: CNN

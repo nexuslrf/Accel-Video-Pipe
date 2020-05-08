@@ -55,7 +55,36 @@ def gen_GV_label(cfg, horizontal=False):
         return inStreams_layer + proc_label + outStreams_layer 
     else:
         return "{" + inStreams_layer + proc_label + outStreams_layer + "}" 
-     
+
+def gen_cpp_params(cfg, default_cfg):
+    params = ""
+    # Note: after python3.6, the in-built dict is orderedDict, don't to worry about the order!
+    for arg, val in default_cfg['args'].items():
+        final_val = None
+        if dict_has('args', cfg) and (arg in cfg['args']):
+            final_val = cfg['args'][arg]
+        else:
+            final_val = val
+        if type(final_val) in (int, float):
+            params += f"{final_val}, "
+        elif type(final_val) == str:
+            final_val = final_val.rstrip()
+            if final_val.startswith('\`') and final_val.endswith('`'):
+                params += f"{final_val[2:-1]}, "
+            else:
+                params += f"\"{final_val}\", "
+        elif type(final_val) == list:
+            c_list = "{" + f"{final_val}"[1:-1] + "}"
+            params += f"{c_list}, "
+        elif type(final_val) == bool:
+            if final_val:
+                params += "true, "
+            else:
+                params += "false, "
+
+    if params != "":
+        params = params[:-2]
+    return params
 
 if __name__ == "__main__":
     configs_map = default_configs_map("/Users/liangruofan1/Program/Accel-Video-Pipe/include/default-configs.yaml")

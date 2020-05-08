@@ -96,9 +96,12 @@ Base Classes (in `avpipe/base.hpp`):
 ------
 
 * [ ] Automation: use Python here...
-* [ ] Visualization
+  * [x] Visualization
   * [ ] Code auto-gen
-    * [ ] Yaml to code
+    * [ ] Yaml to code:
+      * [ ] How to pass config into PipeProcessor:
+        * [x] add a another initial function in hpp? ❌
+        * [ ] follow the default-yaml to pass all params to PipeProcessor? Make sure default-cfg has exactly the same order as the pipeProcessor's initial list. ✔️
     * [ ] Code to Yaml
 * [ ] Pipeline Optimization
 * [ ] CPU:
