@@ -30,7 +30,7 @@ int main()
     avp::StreamShowProcessor imshow(1);
     avp::Stream pipe[10];
     
-    videoSrc.bindStream(&pipe[0], avp::AVP_STREAM_OUT);
+    videoSrc.bindStream({}, {&pipe[0]});
     crop.bindStream({&pipe[0]}, {&pipe[1]});
     normalization.bindStream({&pipe[1]}, {&pipe[2]});
     matToTensor.bindStream({&pipe[2]}, {&pipe[3]});
@@ -39,7 +39,7 @@ int main()
     maxPred.bindStream({&pipe[4]}, {&pipe[6], &pipe[9]});
     getKeypoint.bindStream({&pipe[5], &pipe[6]}, {&pipe[7]});
     draw.bindStream({&pipe[7], &pipe[1], &pipe[9]}, {&pipe[8]});
-    imshow.bindStream(&pipe[8], avp::AVP_STREAM_IN);
+    imshow.bindStream({&pipe[8]}, {});
 
     // avp::StreamPacket inData(rawFrame, 0);
     // pipe[0].loadPacket(inData);

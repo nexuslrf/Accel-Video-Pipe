@@ -69,7 +69,7 @@ def gen_cpp_params(cfg, default_cfg):
             params += f"{final_val}, "
         elif type(final_val) == str:
             final_val = final_val.rstrip()
-            if final_val.startswith('\`') and final_val.endswith('`'):
+            if final_val.startswith('\\`') and final_val.endswith('`'):
                 params += f"{final_val[2:-1]}, "
             else:
                 params += f"\"{final_val}\", "
@@ -87,5 +87,5 @@ def gen_cpp_params(cfg, default_cfg):
     return params
 
 if __name__ == "__main__":
-    configs_map = default_configs_map("/Users/liangruofan1/Program/Accel-Video-Pipe/include/default-configs.yaml")
+    configs_map = default_configs_map("avp_template/default-configs.yaml")
     print(configs_map['DrawDetBoxes']['args']['c'])

@@ -73,7 +73,7 @@ int main()
     avp::TimeUpdater timeUpdate(2);
 
     avp::Stream pipe[30];
-    videoSrc.bindStream(&pipe[0], avp::AVP_STREAM_OUT);
+    videoSrc.bindStream({}, {&pipe[0]});
     crop.bindStream({&pipe[0]}, {&pipe[1], &pipe[14]});
     multiplexer.bindStream({&pipe[25], &pipe[1]}, {&pipe[23]});
     normalization.bindStream({&pipe[23]}, {&pipe[2]});
@@ -92,7 +92,7 @@ int main()
     drawKeypoint.bindStream({&pipe[19], &pipe[14]}, {&pipe[20]});
     keypointToBndBox.bindStream({&pipe[19]}, {&pipe[22]});
     timeUpdate.bindStream({&pipe[19], &pipe[22]}, {&pipe[24], &pipe[25]});
-    imshow_kp.bindStream(&pipe[20], avp::AVP_STREAM_IN);
+    imshow_kp.bindStream({&pipe[20]}, {});
 
     avp::StreamPacket nullData(avp::AVP_TENSOR, 0);
     pipe[24].loadPacket(nullData);

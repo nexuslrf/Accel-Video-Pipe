@@ -166,8 +166,8 @@
 - PipeProcessor: TemplateProcessor
   label: streamMerger
   args:
-    num_input: 2
-    num_output: 1
+    num_input: 5
+    num_output: 4
     func_ptr: |
       \`[&](avp::DataList& in_data_list, avp::DataList& out_data_list){
           if(!streamMerger.checkEmpty(0, 2))

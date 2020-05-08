@@ -58,8 +58,8 @@
 - PipeProcessor: DrawLandMarks
   label: draw
   args:
-    h_scale: 64
-    w_scale: 48
+    h_scale: 4
+    w_scale: 4
     prob_thres: 0.3
   binding:
   - label: getKeypoint
