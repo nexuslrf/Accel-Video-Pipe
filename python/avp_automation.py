@@ -19,6 +19,8 @@ class AVP_Automation:
         self.task_components_map = dict()
         
         for cfg in self.task_configs:
+            # create empty feeding list for later use
+            cfg['feeding'] = []
             # avoid repeated labels
             if cfg['label'] in self.task_components_map:
                 utils.print_err(f"{cfg['label']} has been defined!")
@@ -45,6 +47,7 @@ class AVP_Automation:
             # complete outStreams for task components
             for stream in cfg['binding']:
                 label = stream['label']
+                self.task_components_map[label]['feeding'].append(cfg['label'])
                 idx = 0 
                 if 'idx' in stream:
                     idx = stream['idx']
@@ -89,7 +92,7 @@ class AVP_Automation:
                 # g.edge(stream['label']+f':<out{out_idx}>:s', cfg['label']+f':<in{i}>:n')
         g.view("AVP_"+self.task_name, self.out_path)
 
-    def code_gen(self, additional_includes=[]):
+    def code_gen(self, additional_includes=[], loop_len=20):
         cpp_file_name = self.task_name + '.cpp'
         self.cpp_file_name = os.path.join(self.out_path, cpp_file_name)
 
@@ -101,9 +104,11 @@ class AVP_Automation:
         l_curly = "{"; r_curly = "}"
         default_includes = ['<iostream>', '<string>', '<vector>']
         avp_includes = []
+        orderings = []
         
         pipe_id = 0
         pipe_map = dict()
+        
         for cfg in self.task_configs:
             proc_name = cfg['PipeProcessor']
             proc_label = cfg['label']
@@ -123,15 +128,30 @@ class AVP_Automation:
                 pipe_id += 1
             pipe_map[proc_label] = stream_id_map
         
+        # include formating
+        includes = default_includes + additional_includes + avp_includes
+        for include in includes:
+            include_header += f"#include {include}\n"
+
         # binding pipes
+        async_time_pipes = []
         pipe_binding += f"avp::Stream pipe[{pipe_id}];\n"
         for cfg in self.task_configs:
             cfg_label = cfg['label']
+            
+            if len(cfg['binding']) == 0 and len(cfg['outStreams']) != 0:
+                orderings.append(cfg_label)
+
             in_pipes = ""; out_pipes = ""
             for bnd in cfg['binding']:
                 bnd_label = bnd['label']
                 bnd_id = bnd['idx'] 
-                in_pipes += f"&pipe[{pipe_map[bnd_label][bnd_id]}], "
+                pb_id = pipe_map[bnd_label][bnd_id]
+                in_pipes += f"&pipe[{pb_id}], "
+                if ('async_time' in bnd) and bnd['async_time']:
+                    if pb_id not in async_time_pipes:
+                        async_time_pipes.append(pb_id)
+
             if in_pipes != "":
                 in_pipes = in_pipes[:-2]
             
@@ -143,14 +163,53 @@ class AVP_Automation:
             pipe_binding += f"{cfg_label}.bindStream({l_curly}{in_pipes}{r_curly}," +\
                             f" {l_curly}{out_pipes}{r_curly});\n"
         
-        # include formating
-        includes = default_includes + additional_includes + avp_includes
-        for include in includes:
-            include_header += f"#include {include}\n"
+        if len(orderings) == 0:
+            utils.print_err("no available source PipeProcessor!")
+
+        if len(async_time_pipes):
+            pipe_binding += "\n// Fill the async_time_pipe with empty packet\n" + \
+                            "// Note: work flow should not modify this empty packet!\n" + \
+                            f"avp::StreamPacket nullData(avp::AVP_TENSOR, {orderings[0]}.timeTick);\n"
+            for pb_id in async_time_pipes:
+                pipe_binding += f"pipe[{pb_id}].loadPacket(nullData);\n"
 
         # running pipes
-        running_pipe += "std::cout<<\"AVP test pass!\\n\";"
+        # nodes can be computed in addition to source processor
+        for cfg in self.task_configs:
+            runnable = False
+            for pipe in cfg['binding']:
+                if ('async_time' not in pipe) or not pipe['async_time']:
+                    runnable = False
+                    break
+                else:
+                    runnable = True
+            if runnable and (cfg['label'] in orderings):
+                orderings.append(cfg['label'])
         
+        # use a topology sorting to get processor order
+        pivot = 0
+        while pivot<len(orderings):
+            for p_label in self.task_components_map[orderings[pivot]]['feeding']:
+                runnable  = True
+                for b in self.task_components_map[p_label]['binding']:
+                    if b['label'] not in orderings and \
+                        (('async_time' not in b) or not b['async_time']):
+                        runnable = False
+                        break
+                if runnable and p_label not in orderings:
+                    orderings.append(p_label)
+            pivot += 1
+        
+        # add process!
+        for p_label in orderings:
+            running_pipe += f"{p_label}.process();\nstd::cout<<\"{p_label} pass!\\n\";\n"
+        
+        indent_running_pipe = indent(running_pipe, " "*4)
+        if loop_len >= 0:
+            running_pipe = f"for(int i=0; i<{loop_len}; i++)\n{l_curly}\n{indent_running_pipe}{r_curly}\n"
+        else:
+            running_pipe = f"while(1)\n{l_curly}\n{indent_running_pipe}{r_curly}\n"
+        running_pipe += "std::cout<<\"\\nAVP cpp test pass!\\n\";"    
         # combining
         cpp_text = include_header + \
                 f"\nint main()\n{l_curly}\n" + \
@@ -184,7 +243,6 @@ class AVP_Automation:
         print("--- Bash Output ---")
         print(script_out)
 
-
     def profile(self):
         pass
 
@@ -196,9 +254,9 @@ if __name__ == "__main__":
     default_configs = root_dir + "avp_template/default-configs.yaml"
     pose_yaml = root_dir + "avp_example/pose_estimation.yaml"
     hand_yaml = root_dir + "avp_example/multi_hand_tracking.yaml"
-    avp_task = AVP_Automation(pose_yaml, default_configs)
+    avp_task = AVP_Automation(hand_yaml, default_configs)
     # avp_task.visualize()
-    avp_task.code_gen()
+    avp_task.code_gen(loop_len=200)
     avp_task.cmake_cpp()
     avp_task.cpp_run()
     print("pass")

@@ -323,6 +323,7 @@
     num_input: AVP::REQUIRED 
     num_output: AVP::REQUIRED
     func_ptr: NULL
+    skip_empty_check: false
     out_data_type: \`avp::AVP_TENSOR`
   inStreams:
   - label: in[0]

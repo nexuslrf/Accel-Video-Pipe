@@ -27,10 +27,12 @@
             out_data_list[0].loadData(frame);
         }
       }`
+    skip_empty_check: true
     out_data_type: \`avp::AVP_MAT`
   binding:
   - label: timeUpdate
     idx: 1
+    async_time: true
   - label: crop
     idx: 0
 
@@ -72,7 +74,7 @@
 - PipeProcessor: NonMaxSuppression
   label: NMS
   args:
-    num_keypts: 21
+    num_keypts: 7
   binding:
   - label: PalmCNN
     idx: 1
@@ -131,10 +133,12 @@
 
 - PipeProcessor: DrawLandMarks
   label: drawKeypoint
+  args:
+    r: 4
   binding: 
   - label: rotateBack
   - label: crop
-    idx: 0
+    idx: 1
 
 - PipeProcessor: StreamShowProcessor
   label: imshow_kp
@@ -182,6 +186,7 @@
               handRotateCropResize.run(handStreams, out_data_list);
           }
       }`
+    skip_empty_check: true
     out_data_type: \`avp::AVP_MAT`
   binding:
   - label: NMS
@@ -190,10 +195,12 @@
     idx: 1
   - label: timeUpdate
     idx: 1
+    async_time: true
   - label: timeUpdate
     idx: 0
+    async_time: true
   - label: crop
-    idx: 0
+    idx: 1
 
 - PipeProcessor: TimeUpdater
   label: timeUpdate

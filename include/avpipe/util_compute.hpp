@@ -8,9 +8,11 @@ class TemplateProcessor: public PipeProcessor {
     std::function<void(DataList&, DataList&)> runFunc_ptr;
 public:
     TemplateProcessor(int num_input, int num_output, std::function<void(DataList&, DataList&)> func_ptr=NULL,
-        PackType out_data_type=AVP_TENSOR, string pp_name="", PPType process_type=STREAM_PROC):
+        bool skip_empty_check=false, PackType out_data_type=AVP_TENSOR, string pp_name="", PPType process_type=STREAM_PROC):
         PipeProcessor(num_input, num_output, out_data_type, pp_name, process_type), runFunc_ptr(func_ptr)
-    {}
+    {
+        skipEmptyCheck = skip_empty_check;
+    }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         runFunc_ptr(in_data_list, out_data_list);

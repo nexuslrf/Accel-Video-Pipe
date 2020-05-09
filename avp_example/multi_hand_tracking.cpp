@@ -52,8 +52,7 @@ int main()
             avp::Mat frame = in_data_list[1].mat();
             out_data_list[0].loadData(frame);
         }
-    }, avp::AVP_MAT);
-    multiplexer.skipEmptyCheck = true;
+    }, true, avp::AVP_MAT);
 
     avp::TemplateProcessor streamMerger(5, 4, [&](avp::DataList& in_data_list, avp::DataList& out_data_list){
         if(!streamMerger.checkEmpty(0, 2))
@@ -67,8 +66,7 @@ int main()
             auto handStreams = avp::DataList({in_data_list[2], in_data_list[3], in_data_list[4]});
             handRotateCropResize.run(handStreams, out_data_list);
         }
-    }, avp::AVP_MAT);
-    streamMerger.skipEmptyCheck = true;
+    }, true, avp::AVP_MAT);
 
     avp::TimeUpdater timeUpdate(2);
 
