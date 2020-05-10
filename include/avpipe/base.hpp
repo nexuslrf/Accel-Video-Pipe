@@ -16,6 +16,10 @@
 #include <mutex>
 #include <cmath>
 
+#ifdef _TIMING
+#include <chrono>
+#endif
+
 namespace avp {
 
 using SizeVector = std::vector<size_t>;
@@ -234,6 +238,12 @@ public:
     size_t numInStreams, numOutStreams;
     int timeTick;
     bool skipEmptyCheck, nullPlaceHolder; // used to skip empty checking, to enable proper functioning
+
+#ifdef _TIMING
+    int cumNum{0};
+    double averageMeter{0};
+#endif
+
     PipeProcessor(int num_instreams, int num_outstreams, PackType data_type, std::string pp_name, PPType pp_type): name(pp_name), 
         procType(pp_type), dataType(data_type), numInStreams(num_instreams), numOutStreams(num_outstreams), 
         timeTick(-1), skipEmptyCheck(false), nullPlaceHolder(true)
@@ -244,6 +254,11 @@ public:
     virtual void run(DataList& in_data_list, DataList& out_data_list) {}
     virtual void process() 
     {
+
+#ifdef _TIMING
+        auto stop1 = std::chrono::high_resolution_clock::now();
+#endif
+
         checkStream();
         DataList in_data_list, out_data_list;
         int tmp_time=-2;
@@ -317,6 +332,14 @@ public:
         }
         for(i=0; i<numInStreams; i++)
             inStreams[i]->releasePacket();
+
+#ifdef _TIMING
+        auto stop2 = std::chrono::high_resolution_clock::now();
+        auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(stop2-stop1).count();
+        averageMeter = ((averageMeter * cumNum) + gap) / (cumNum + 1);
+        cumNum++;
+#endif
+
     }
     
     virtual void bindStream(std::vector<Stream*> in_stream_ptr_list, std::vector<Stream*> out_stream_ptr_list) 

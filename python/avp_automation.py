@@ -92,7 +92,7 @@ class AVP_Automation:
                 # g.edge(stream['label']+f':<out{out_idx}>:s', cfg['label']+f':<in{i}>:n')
         g.view("AVP_"+self.task_name, self.out_path)
 
-    def code_gen(self, additional_includes=[], loop_len=20):
+    def code_gen(self, additional_includes=[], loop_len=20, pass_info=True, profile=False):
         cpp_file_name = self.task_name + '.cpp'
         self.cpp_file_name = os.path.join(self.out_path, cpp_file_name)
 
@@ -101,6 +101,7 @@ class AVP_Automation:
         processor_definition = "// Start processor definition\n"
         pipe_binding = "// Start pipe binding\n"
         running_pipe = "// Start running pipe\n"
+        profile_info = ""
         l_curly = "{"; r_curly = "}"
         default_includes = ['<iostream>', '<string>', '<vector>']
         avp_includes = []
@@ -202,7 +203,9 @@ class AVP_Automation:
         
         # add process!
         for p_label in orderings:
-            running_pipe += f"{p_label}.process();\nstd::cout<<\"{p_label} pass!\\n\";\n"
+            running_pipe += f"{p_label}.process();\n"
+            if pass_info:
+                running_pipe += f"std::cout<<\"{p_label} pass!\\n\";\n"
         
         indent_running_pipe = indent(running_pipe, " "*4)
         if loop_len >= 0:
@@ -210,41 +213,65 @@ class AVP_Automation:
         else:
             running_pipe = f"while(1)\n{l_curly}\n{indent_running_pipe}{r_curly}\n"
         running_pipe += "std::cout<<\"\\nAVP cpp test pass!\\n\";"    
+
+        # add timing info
+        if profile:
+            profile_info += "// Show the timing info\n"
+            profile_info += "#ifdef _TIMING\n"
+            for cfg in self.task_configs:
+                profile_info += f"std::cout<<\"{cfg['label']}: \"<<{cfg['label']}.averageMeter<<\"ms\\n\";\n"
+            profile_info += "#endif\n"
+
         # combining
         cpp_text = include_header + \
-                f"\nint main()\n{l_curly}\n" + \
-                indent(f"{(processor_definition)}\n{pipe_binding}\n{running_pipe}\nreturn 0;", " "*4)+ \
-                f"\n{r_curly}"
+            f"\nint main()\n{l_curly}\n" + \
+            indent(f"{(processor_definition)}\n{pipe_binding}\n{running_pipe}\n{profile_info}\nreturn 0;", " "*4)+ \
+            f"\n{r_curly}"
 
         cpp_file = open(self.cpp_file_name, "w")
         cpp_file.write(cpp_text)
         cpp_file.close()
         return
 
-    def cmake_cpp(self, template_cmakelists = 'avp_template/template_cmakelists.txt'):
+    def cmake_cpp(self, template_cmakelists = 'avp_template/template_cmakelists.txt', definitions=[]):
         cmakelists = open(template_cmakelists, 'r').read()
-        cmakelists = cmakelists.replace("avp_template_project", self.task_name)
-        # # find add_exectable chunk
-        # add_exectable_chunk = ""
-        # find = False
-        # for i, line in enumerate(cmakelists.split('\n')):
-        #     if "AVP::EXEC::BEGIN" in line:
-        #         find = True
-        #     if find:
-        #         add_exectable_chunk += (line + '\n')
-        #     if "AVP::EXEC::END" in line:
-        #         break
-        cmakelists = cmakelists.replace("avp_template_exec", self.task_name)
+
+        # find different chunks
+        configuration_chunk = ""
+        add_exectable_chunk = ""
+        find = False
+        for i, line in enumerate(cmakelists.split('\n')):
+            if "AVP::EXEC::BEGIN" in line:
+                find = True
+            if find:
+                add_exectable_chunk += (line + '\n')
+            else:
+                configuration_chunk += (line + '\n')
+            if "AVP::EXEC::END" in line:
+                break
+        
+        configuration_chunk = configuration_chunk.replace("avp_template_project", self.task_name)
+        add_exectable_chunk = add_exectable_chunk.replace("avp_template_exec", self.task_name)
+        for definition in definitions:
+            configuration_chunk += f"add_definitions(-D{definition})\n"
+        cmakelists = configuration_chunk + '\n' + add_exectable_chunk
         fh = open(os.path.join(self.out_path, "CMakeLists.txt"), 'w')
         fh.write(cmakelists)
 
-    def cpp_run(self, script_file="avp_template/avp_build_and_run.sh"):
+    def cpp_build(self, script_file="avp_template/avp_build.sh"):
         script_out = os.popen(f"bash {script_file} {self.out_path} {self.task_name}").read()
         print("--- Bash Output ---")
         print(script_out)
 
-    def profile(self):
-        pass
+    def cpp_run(self, script_file="avp_template/avp_run.sh"):
+        script_out = os.popen(f"bash {script_file} {self.out_path} {self.task_name}").read()
+        print("--- Bash Output ---")
+        print(script_out)
+
+    def profile(self, loop_len=50):
+        self.code_gen(loop_len=loop_len, profile=True, pass_info=False)
+        self.cmake_cpp(definitions=['_TIMING'])
+        self.cpp_build()
 
     def optimize(self):
         pass
@@ -256,7 +283,8 @@ if __name__ == "__main__":
     hand_yaml = root_dir + "avp_example/multi_hand_tracking.yaml"
     avp_task = AVP_Automation(hand_yaml, default_configs)
     # avp_task.visualize()
-    avp_task.code_gen(loop_len=200)
-    avp_task.cmake_cpp()
-    avp_task.cpp_run()
+    # avp_task.code_gen(loop_len=200)
+    # avp_task.cmake_cpp()
+    # avp_task.cpp_run()
+    avp_task.profile()
     print("pass")
