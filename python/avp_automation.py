@@ -314,8 +314,8 @@ if __name__ == "__main__":
     hand_yaml = root_dir + "avp_example/multi_hand_tracking.yaml"
     avp_task = AVP_Automation(pose_yaml, default_configs)
     # avp_task.visualize()
-    # avp_task.code_gen(loop_len=200)
-    # avp_task.cmake_cpp()
-    # avp_task.cpp_run()
-    avp_task.profile()
+    avp_task.code_gen(loop_len=200)
+    avp_task.cmake_cpp()
+    avp_task.cpp_build()
+    # avp_task.profile()
     print("pass")

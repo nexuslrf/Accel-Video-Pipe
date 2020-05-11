@@ -24,7 +24,7 @@ public:
         // preds: [N, C, 2]
         auto preds = torch::empty({bs, numJoints, 2}, torch::kI32);
         preds.slice(2,0,1) = idx % heatmaps.size(3);
-        preds.slice(2,1,2) = idx / heatmaps.size(3);
+        preds.slice(2,1,2) = idx.floor_divide(heatmaps.size(3)); // idx / heatmaps.size(3); 
         auto predMusk = (maxvals > 0.0);
         preds.mul_(predMusk);
         // probs.copy_(maxvals);

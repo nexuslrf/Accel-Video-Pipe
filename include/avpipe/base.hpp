@@ -200,8 +200,8 @@ public:
     {
         if(num_consume<=0)
             num_consume = numConsume;
-
         packet.numConsume = num_consume;
+        std::lock_guard<std::mutex> guard(consumeMutex);
         push_back(packet);
     }
     //@TODO: Consume + while(!queue.empty())...
@@ -216,8 +216,8 @@ public:
     }
     void releasePacket()
     {
-        auto it = begin();
         std::lock_guard<std::mutex> guard(consumeMutex);
+        auto it = begin();
         it->numConsume--;
         if(!it->numConsume)
             pop_front();
@@ -286,9 +286,9 @@ public:
                 {
                     //timeInconsistent = true; // Case checking 2
 #ifdef _LOG_INFO                    
-                    std::cerr<<"[ERROR] "<<typeid(*this).name()<<" inconsistent timestamps of inStream packets\n";
+                    std::cerr<<"[WARNING] "<<typeid(*this).name()<<" inconsistent timestamps of inStream packets\n"
 #endif                    
-                    exit(0);
+                    exit(1);//return;
                 }
             }
             if(!skipEmptyCheck && in_data.empty())
@@ -298,6 +298,14 @@ public:
             else
                 in_data_list.push_back(in_data); 
                 // No matter what case, in_data_list will be generated
+        }
+        if(timeTick == tmp_time)
+        {
+            // @TODO other ways!
+#ifdef _LOG_INFO
+            std::cerr<<"[WARNING] This packet has been computed!\n";
+#endif
+            return;
         }
         if(numInStreams)
             timeTick = tmp_time;
