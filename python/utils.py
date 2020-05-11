@@ -34,8 +34,11 @@ def dict_has(key, cfg):
     return (key in cfg) and (cfg[key] is not None)
 
 # take in cfg and generate graphviz label
-def gen_GV_label(cfg, horizontal=False):
-    proc_label = f"{cfg['label']}:\\n{cfg['PipeProcessor']}"
+def gen_GV_label(cfg, horizontal=False, show_timing=False):
+    if show_timing and 'timing_info' in cfg:
+        proc_label = f"{cfg['label']}:\\n{cfg['PipeProcessor']}\\nTiming: {cfg['timing_info']}ms"
+    else:
+        proc_label = f"{cfg['label']}:\\n{cfg['PipeProcessor']}"
 
     # inStreams
     inStreams_layer = ""

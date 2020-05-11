@@ -26,6 +26,8 @@ message(STATUS "OpenVINO status")
 message(STATUS "    version: ${InferenceEngine_VERSION}")
 message(STATUS "    libraries: ${InferenceEngine_LIBRARIES}")
 
+add_definition(-D_LOG_INFO)
+
 add_executable( pose_estimation pose_estimation.cpp )
 target_link_libraries( pose_estimation "${TORCH_LIBRARIES}")
 target_link_libraries( pose_estimation ${OpenCV_LIBS} )

@@ -272,7 +272,9 @@ public:
             if(inStreams[i]->empty())
             {
                 // streamEmpty = true; // Case checking 1
+#ifdef _LOG_INFO                
                 std::cerr<<"[WARNING] "<<typeid(*this).name()<<" streams are not all ready!\n";
+#endif                
                 return;
             }
             else
@@ -283,7 +285,9 @@ public:
                 else if(tmp_time != in_data.timestamp)
                 {
                     //timeInconsistent = true; // Case checking 2
+#ifdef _LOG_INFO                    
                     std::cerr<<"[ERROR] "<<typeid(*this).name()<<" inconsistent timestamps of inStream packets\n";
+#endif                    
                     exit(0);
                 }
             }
@@ -316,7 +320,9 @@ public:
         
         if(packetEmpty) // clean up all inStream packets
         {
+#ifdef _LOG_INFO            
             std::cerr<<"[WARNING] "<<typeid(*this).name()<<" clean up all inStream packets\n";
+#endif            
             for(i=0; i<numInStreams; i++)
             {
                 inStreams[i]->releasePacket();
@@ -348,7 +354,9 @@ public:
         {
             if(inStreams.size()==numInStreams)
             {
+#ifdef _LOG_INFO
                 std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of inStreams exceeds limit.\n";
+#endif
                 exit(0);
             }
             inStreams.push_back(stream_ptr);
@@ -358,7 +366,9 @@ public:
         {
             if(outStreams.size()==numOutStreams)
             {
+#ifdef _LOG_INFO                
                 std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of outStreams exceeds limit.\n";
+#endif                
                 exit(0);
             }
             outStreams.push_back(stream_ptr);
@@ -369,7 +379,9 @@ public:
         // @TODO: Not sufficient!
         if(inStreams.empty()&&outStreams.empty())
         {
+#ifdef _LOG_INFO            
             std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Streams are empty!\n";
+#endif            
             exit(0);
         }
     }

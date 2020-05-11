@@ -46,7 +46,7 @@ Base Classes (in `avpipe/base.hpp`):
 
   **TODO:**
 
-  * [ ] Combine/operator+
+  * [ ] Combine/operator+: pending, *unimportant*
   * [x] Multiplexer: 
     * [x] Implemented by `TemplateProcessor`
   * [x] Placeholder to bypass empty checking
@@ -55,7 +55,7 @@ Base Classes (in `avpipe/base.hpp`):
     * [x] Implemented by `TemplateProcessor`
   * [x] Redesign the empty check condition flow, to avoid partial empty cases, make sure all inStreams having the same behavior.    
   * [x] When auto-generate pipeline, make sure to scan all input Streams to avoid empty streams. `nullPacket` is a necessary placeholder!
-  * [ ] Find a better way to output debug info/logs 
+  * [ ] Find a better way to output debug info/logs: consider [glog](https://github.com/google/glog)!
 
   Processors:
 

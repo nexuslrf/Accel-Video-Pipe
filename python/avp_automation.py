@@ -80,11 +80,11 @@ class AVP_Automation:
                     if arg not in default_cfg['args']:
                         utils.print_err(f"Unknown arg: {cfg_name}.{arg}")
 
-    def visualize(self):
+    def visualize(self, show_timing=False):
         g = Digraph("AVP_"+self.task_name)
         g.attr(rankdir="TD", ratio=f'{4./3}', splines='spline')
         for cfg in self.task_configs:
-            g.node(cfg['label'], utils.gen_GV_label(cfg), shape='record')
+            g.node(cfg['label'], utils.gen_GV_label(cfg, show_timing=show_timing), shape='record')
         for cfg in self.task_configs:
             for i, stream in enumerate(cfg['binding']):
                 out_idx = stream['idx']
@@ -130,6 +130,8 @@ class AVP_Automation:
             pipe_map[proc_label] = stream_id_map
         
         # include formating
+        if profile:
+            default_includes.append('<chrono>')
         includes = default_includes + additional_includes + avp_includes
         for include in includes:
             include_header += f"#include {include}\n"
@@ -207,20 +209,32 @@ class AVP_Automation:
             if pass_info:
                 running_pipe += f"std::cout<<\"{p_label} pass!\\n\";\n"
         
+        if profile:
+            running_pipe = "auto stop1 = std::chrono::high_resolution_clock::now();\n" + running_pipe +\
+                "auto stop2 = std::chrono::high_resolution_clock::now();\n" +\
+                "auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(stop2-stop1).count();\n" +\
+                "averageMeter = ((averageMeter * cumNum) + gap) / (cumNum + 1);\ncumNum++;\n"
+                
         indent_running_pipe = indent(running_pipe, " "*4)
+        
         if loop_len >= 0:
             running_pipe = f"for(int i=0; i<{loop_len}; i++)\n{l_curly}\n{indent_running_pipe}{r_curly}\n"
         else:
             running_pipe = f"while(1)\n{l_curly}\n{indent_running_pipe}{r_curly}\n"
+        if profile:
+            running_pipe = "int cumNum = 0;\ndouble averageMeter=0;\n\n" + running_pipe
         running_pipe += "std::cout<<\"\\nAVP cpp test pass!\\n\";"    
 
         # add timing info
         if profile:
             profile_info += "// Show the timing info\n"
             profile_info += "#ifdef _TIMING\n"
+            profile_info += "std::cout<<\"--- AVP::TIMING_INFO::BEGIN ---\\n\";\n"
             for cfg in self.task_configs:
-                profile_info += f"std::cout<<\"{cfg['label']}: \"<<{cfg['label']}.averageMeter<<\"ms\\n\";\n"
+                profile_info += f"std::cout<<\"{cfg['label']}: \"<<{cfg['label']}.averageMeter<<\" ms\\n\";\n"
+            profile_info += "std::cout<<\"--- AVP::TIMING_INFO::END ---\\n\";\n"
             profile_info += "#endif\n"
+            profile_info += "std::cout<<\"AVP::AVERAGE_TIME: \"<<averageMeter<<\" ms\\n\";"
 
         # combining
         cpp_text = include_header + \
@@ -233,14 +247,14 @@ class AVP_Automation:
         cpp_file.close()
         return
 
-    def cmake_cpp(self, template_cmakelists = 'avp_template/template_cmakelists.txt', definitions=[]):
+    def cmake_cpp(self, template_cmakelists = 'avp_template/template_cmakelists.txt', definitions=["_LOG_INFO"]):
         cmakelists = open(template_cmakelists, 'r').read()
 
         # find different chunks
         configuration_chunk = ""
         add_exectable_chunk = ""
         find = False
-        for i, line in enumerate(cmakelists.split('\n')):
+        for line in cmakelists.split('\n'):
             if "AVP::EXEC::BEGIN" in line:
                 find = True
             if find:
@@ -260,18 +274,35 @@ class AVP_Automation:
 
     def cpp_build(self, script_file="avp_template/avp_build.sh"):
         script_out = os.popen(f"bash {script_file} {self.out_path} {self.task_name}").read()
-        print("--- Bash Output ---")
+        print("--- CPP Build Output ---")
         print(script_out)
+        return script_out
 
     def cpp_run(self, script_file="avp_template/avp_run.sh"):
         script_out = os.popen(f"bash {script_file} {self.out_path} {self.task_name}").read()
-        print("--- Bash Output ---")
+        print("--- CPP Run Output ---")
         print(script_out)
+        return script_out
 
     def profile(self, loop_len=50):
         self.code_gen(loop_len=loop_len, profile=True, pass_info=False)
         self.cmake_cpp(definitions=['_TIMING'])
         self.cpp_build()
+        output = self.cpp_run()
+        find = False
+        for line in output.split('\n'):
+            if "AVP::TIMING_INFO::END" in line:
+                break
+
+            if find:
+                words = line.split()
+                label = words[0][:-1]
+                self.task_components_map[label]['timing_info'] = eval(words[1])
+
+            if "AVP::TIMING_INFO::BEGIN" in line:
+                find = True
+        
+        self.visualize(show_timing=True)
 
     def optimize(self):
         pass
@@ -281,7 +312,7 @@ if __name__ == "__main__":
     default_configs = root_dir + "avp_template/default-configs.yaml"
     pose_yaml = root_dir + "avp_example/pose_estimation.yaml"
     hand_yaml = root_dir + "avp_example/multi_hand_tracking.yaml"
-    avp_task = AVP_Automation(hand_yaml, default_configs)
+    avp_task = AVP_Automation(pose_yaml, default_configs)
     # avp_task.visualize()
     # avp_task.code_gen(loop_len=200)
     # avp_task.cmake_cpp()

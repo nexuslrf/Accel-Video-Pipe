@@ -22,7 +22,7 @@
       \`[&multiplexer](avp::DataList& in_data_list, avp::DataList& out_data_list){
         if(multiplexer.timeTick%5==0||in_data_list[0].empty())
         {
-            std::cout<<"----------palm branch!----------\n";
+            // std::cout<<"----------palm branch!----------\n";
             avp::Mat frame = in_data_list[1].mat();
             out_data_list[0].loadData(frame);
         }
@@ -143,7 +143,7 @@
 - PipeProcessor: StreamShowProcessor
   label: imshow_kp
   args:
-    wait_time: 100
+    wait_time: 1
   binding:
   - label: drawKeypoint
 
@@ -181,7 +181,7 @@
           }
           else if(!streamMerger.checkEmpty(2, 4))
           {
-              std::cout<<"hello wtf?\n";
+              // std::cout<<"hello wtf?\n";
               auto handStreams = avp::DataList({in_data_list[2], in_data_list[3], in_data_list[4]});
               handRotateCropResize.run(handStreams, out_data_list);
           }
