@@ -24,7 +24,7 @@ public:
         // preds: [N, C, 2]
         auto preds = torch::empty({bs, numJoints, 2}, torch::kI32);
         preds.slice(2,0,1) = idx % heatmaps.size(3);
-        preds.slice(2,1,2) = idx.floor_divide(heatmaps.size(3)); // idx / heatmaps.size(3); 
+        preds.slice(2,1,2) = idx.floor_divide(heatmaps.size(3)); // idx / heatmaps.size(3);
         auto predMusk = (maxvals > 0.0);
         preds.mul_(predMusk);
         // probs.copy_(maxvals);
@@ -48,19 +48,20 @@ public:
     {
         auto heatmaps = in_data_list[0].tensor();
         int bs = heatmaps.size(0), numJoints = heatmaps.size(1);
-        auto map_a = in_data_list[0].tensor().accessor<float, 4>();
+        int map_h = heatmaps.size(2), map_w = heatmaps.size(3);
+        auto map_a = heatmaps.accessor<float, 4>();
         auto xy_a = in_data_list[1].tensor().accessor<int, 3>();
         auto keyPoints = torch::empty({bs, numJoints, 2}, torch::kF32);
         int x,y;
         float d1_x, d1_y, d2;
         d2 = sigma * sigma / 4;
-        for(int i=0; i<(int)heatmaps.size(0); i++)
+        for(int i=0; i<bs; i++)
         {
-            for(int j=0; j<(int)heatmaps.size(1); j++)
+            for(int j=0; j<numJoints; j++)
             {
                 x = xy_a[i][j][0];
                 y = xy_a[i][j][1];
-                if(x>0 && y>0)
+                if(x>0 && y>0 && x<map_w-1 && y<map_h-1)
                 {
                     d1_x = std::log(
                         (map_a[i][j][y][x+1] * map_a[i][j][y][x+1] * map_a[i][j][y+1][x+1] * map_a[i][j][y-1][x+1]) / 
@@ -75,6 +76,12 @@ public:
                     keyPoints[i][j][0] = x + d1_x;
                     keyPoints[i][j][1] = y + d1_y;
                 }
+                else
+                {
+                    keyPoints[i][j][0] = x;
+                    keyPoints[i][j][1] = y;
+                }
+                
             }
         }
         out_data_list[0].loadData(keyPoints);

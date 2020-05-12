@@ -38,14 +38,14 @@ public:
     }
 };
 /*
- * According the judging results to descide where the streams should be forwarded
- * Let's try the Lambda Function this time!
+ * To reduce the redundant use of the pipes.
+ * How it work: 
+ *  1. collect all necessary inStreams and outStreams. 
  */
-// class CompoundProcessor: public PipeProcessor {
-//     void (*runFunc_ptr)(DataList&, DataList&);
+// class ProcessorWrapper: public PipeProcessor {
 //     std::vector<PipeProcessor*> processorList;
 // public:
-//     CompoundProcessor(int num_input, int num_output, std::vector<PipeProcessor*> processor_list, void (*func_ptr)(DataList&, DataList&)=NULL,
+//     ProcessorWrapper(int num_input, int num_output, std::vector<PipeProcessor*> processor_list, void (*func_ptr)(DataList&, DataList&)=NULL,
 //         PackType out_data_type=AVP_TENSOR, string pp_name="", PPType process_type=STREAM_PROC):
 //         PipeProcessor(num_input, num_output, out_data_type, pp_name, process_type), runFunc_ptr(func_ptr), processorList(processor_list)
 //     {}

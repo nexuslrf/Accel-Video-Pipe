@@ -89,55 +89,6 @@ public:
             inStreams[0]->releasePacket();
         }
     }
-    void processAsync()
-    {
-        checkStream();
-        // @TODO: disentangle while loop in the future!
-        bool first_loop = true;
-        Stream::iterator next_itr;
-        while(true)
-        {
-            // To get initial iterators
-            if(first_loop)
-            {
-                if(inStreams[0]->empty())
-                    continue;
-                else
-                {
-                    iterators.push_back(inStreams[0]->begin());
-                    first_loop = false;
-                }
-            }
-            // To avoid end iterator
-            else if(next_itr==inStreams[0]->end())
-            {
-                continue;
-            }
-            else
-            {
-                iterators[0] = next_itr;
-            }
-            
-            auto in_data = *iterators[0];
-            if(in_data.empty())
-            {
-                inStreams[0]->releasePacket(iterators[0]);
-                break;
-            }
-            if(in_data.timestamp==timeTick)
-                continue;
-            else
-                timeTick = in_data.timestamp;
-
-            StreamPacket out_data(AVP_TENSOR, timeTick);
-            addTick();
-            infer(in_data, out_data);
-            outStreams[0]->loadPacket(out_data);
-            next_itr = iterators[0]+1;
-            inStreams[0]->releasePacket(iterators[0]);
-        }
-    }
-
 };
 
 }
