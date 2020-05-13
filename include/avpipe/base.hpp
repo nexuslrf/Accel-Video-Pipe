@@ -40,6 +40,8 @@ public:
     Tensor tensor_data;
     int timestamp, numConsume;
     PackType dataType;
+    bool finish{false};
+
     StreamPacket(PackType data_type=AVP_TENSOR, int init_timestamp=-1): timestamp(init_timestamp), 
         numConsume(0), dataType(data_type) {}
     StreamPacket(Tensor& tensor_data, int tensor_timestamp=-1): 
@@ -196,6 +198,7 @@ public:
     std::string name;
     int numConsume;
     std::vector<Stream*> coupledStreams;
+
     Stream(): numConsume(0) {}
     Stream(std::string s_name, int num_consume=0): name(s_name), numConsume(num_consume)
     {}
@@ -203,12 +206,12 @@ public:
     {
         if(num_consume<=0)
             num_consume = numConsume;
-        packet.numConsume = num_consume;
         for(auto &ptr: coupledStreams)
             ptr->loadPacket(packet);
         std::unique_lock<std::mutex> locker(consumeMutex);
         spaceCond.wait(locker, [&](){return this->size()<=streamCapacity;});
         push_back(packet);
+        back().numConsume = num_consume;
         locker.unlock();
         loadCond.notify_one();
     }
@@ -265,7 +268,7 @@ public:
     PackType dataType; // only used for output data type
     size_t numInStreams, numOutStreams;
     int timeTick;
-    bool skipEmptyCheck, nullPlaceHolder; // used to skip empty checking, to enable proper functioning
+    bool skipEmptyCheck, finish; // used to skip empty checking, to enable proper functioning
 
 #ifdef _TIMING
     int cumNum{0};
@@ -274,7 +277,7 @@ public:
 
     PipeProcessor(int num_instreams, int num_outstreams, PackType data_type, std::string pp_name, PPType pp_type): name(pp_name), 
         procType(pp_type), dataType(data_type), numInStreams(num_instreams), numOutStreams(num_outstreams), 
-        timeTick(-1), skipEmptyCheck(false), nullPlaceHolder(true)
+        timeTick(-1), skipEmptyCheck(false), finish(false)
     {}
     void addTick() {
         timeTick = (timeTick + 1) % MAX_TIME_ROUND;
@@ -282,14 +285,12 @@ public:
     virtual void run(DataList& in_data_list, DataList& out_data_list) {}
     virtual void process() 
     {
-#ifdef _TIMING
-        auto stop1 = std::chrono::high_resolution_clock::now();
-#endif
         checkStream();
 
         DataList in_data_list, out_data_list;
         int tmp_time=-2;
         bool packetEmpty = false; // streamEmpty = false, timeInconsistent = false;
+        bool pipeFinish = false;
         size_t i;
         for(i=0; i<numInStreams; i++)
         {
@@ -297,6 +298,7 @@ public:
             StreamPacket in_data;
 
             in_data = inStreams[i]->getPacket();
+            pipeFinish = pipeFinish | in_data.finish;
             if(tmp_time==-2)
                 tmp_time = in_data.timestamp;
             else if(tmp_time != in_data.timestamp)
@@ -316,6 +318,8 @@ public:
                 in_data_list.push_back(in_data); 
                 // No matter what case, in_data_list will be generated
         }
+        
+        finish = pipeFinish;
 
         if(timeTick == tmp_time)
         {
@@ -334,7 +338,12 @@ public:
         for(i=0; i<numOutStreams; i++)
         {
             StreamPacket out_data(dataType, timeTick);
-            if(packetEmpty)
+            if(pipeFinish)
+            {
+                out_data.finish = true;
+                outStreams[i]->loadPacket(out_data);
+            }
+            else if(packetEmpty)
             {
                 outStreams[i]->loadPacket(out_data);
             }
@@ -345,7 +354,7 @@ public:
             
         }
         
-        if(packetEmpty) // clean up all inStream packets
+        if(packetEmpty || pipeFinish) // clean up all inStream packets
         {
 #ifdef _LOG_INFO            
             std::cerr<<"[WARNING] "<<typeid(*this).name()<<" clean up all inStream packets\n";
@@ -357,12 +366,11 @@ public:
             return;
         }
 
-        run(in_data_list, out_data_list);
+#ifdef _TIMING
+        auto stop1 = std::chrono::high_resolution_clock::now();
+#endif
 
-        for(i=0; i<numOutStreams; i++)
-            outStreams[i]->loadPacket(out_data_list[i]);
-        for(i=0; i<numInStreams; i++)
-            inStreams[i]->releasePacket();
+        run(in_data_list, out_data_list);
 
 #ifdef _TIMING
         auto stop2 = std::chrono::high_resolution_clock::now();
@@ -371,6 +379,10 @@ public:
         cumNum++;
 #endif
 
+        for(i=0; i<numOutStreams; i++)
+            outStreams[i]->loadPacket(out_data_list[i]);
+        for(i=0; i<numInStreams; i++)
+            inStreams[i]->releasePacket();
     }
     
     virtual void bindStream(std::vector<Stream*> in_stream_ptr_list, std::vector<Stream*> out_stream_ptr_list) 
@@ -423,6 +435,78 @@ public:
     }
     // virtual void Stop() = 0;
 };
+
+using ProcList = std::vector<PipeProcessor*>;
+
+void pipeThreadProcess(ProcList processor_list, int loop_len)
+{
+    if(loop_len<=0)
+    {
+        while(1)
+        {
+            for(auto& proc_ptr: processor_list)
+            {
+                proc_ptr->process();
+            }
+            if(processor_list.back()->finish)
+                break;
+        }
+    }
+    else
+    {
+        for(int i=0; i<loop_len; i++)
+        {
+            for(auto& proc_ptr: processor_list)
+            {
+                proc_ptr->process();
+            }
+            if(processor_list.back()->finish)
+                break;
+        }
+    }
+}
+
+void pipeThreadProcessTiming(ProcList processor_list, int loop_len)
+{
+    int cumNum = 0;
+    double averageMeter=0;
+    if(loop_len<=0)
+    {
+        while(1)
+        {
+            auto stop1 = std::chrono::high_resolution_clock::now();
+            for(auto& proc_ptr: processor_list)
+            {
+                proc_ptr->process();
+            }
+            if(processor_list.back()->finish)
+                break;
+            auto stop2 = std::chrono::high_resolution_clock::now();
+            auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(stop2-stop1).count();
+            averageMeter = ((averageMeter * cumNum) + gap) / (cumNum + 1);
+            cumNum++;
+        }
+    }
+    else
+    {
+        for(int i=0; i<loop_len; i++)
+        {
+            auto stop1 = std::chrono::high_resolution_clock::now();
+            for(auto& proc_ptr: processor_list)
+            {
+                proc_ptr->process();
+            }
+            if(processor_list.back()->finish)
+                break;
+            auto stop2 = std::chrono::high_resolution_clock::now();
+            auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(stop2-stop1).count();
+            averageMeter = ((averageMeter * cumNum) + gap) / (cumNum + 1);
+            cumNum++;
+        }
+    }
+    std::cout<<"AVP::AVERAGE_TIME: "<<averageMeter<<" ms\n";
+}
+
 }
 
     // StreamPacket& getPacket()

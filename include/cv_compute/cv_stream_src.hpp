@@ -26,7 +26,13 @@ public:
     {
         Mat frame;
         cap>>frame;
-        out_data_list[0].loadData(frame);
+        if(!frame.empty())
+            out_data_list[0].loadData(frame);
+        else
+        {
+            out_data_list[0].finish = true;
+            finish = true;
+        }
         addTick();
     }
 

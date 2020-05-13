@@ -101,35 +101,39 @@ Processors:
       * [x] How to pass config into PipeProcessor:
         * [x] <s>add a another initial function in hpp?</s> ❌
         * [x] follow the default-yaml to pass all params to PipeProcessor? Make sure default-cfg has exactly the same order as the pipeProcessor's initial list. ✔️
-    * [x] <s>Code to Yaml</s>
+    * [x] <s>Code to Yaml</s>: unnecessary
 * [ ] Optimization
   * [ ] Multi-threading
-    * [ ] make sure avp can run in multiple threads
+    * [x] make sure avp can run in multiple threads
       * [x] Pose_estimation
-      * [ ] Hand
+      * [x] Hand
     * Problems:
       * Timing sync: Fast-Slow Problem: one thread consuming faster than another thread on the same stream, which causes time wasting? 
 
         Consider 3 solutions: 
 
         * [x] The faster one wait for the slower one ✔️
-        * [x] <s>Async pointer for each pipe in each pipeprocessor: **TODO**</s>
+        * [x] <s>Async pointer for each pipe in each pipeprocessor: **TODO **</s> ❌
           * [Behavior of deque iterator](https://stackoverflow.com/questions/10373985/c-deque-when-iterators-are-invalidated) makes it very hard to keep tracking... *Just give up*...
         * [x] Do not use one pipe as multiple inStreams across different threads.
-          * Bi-directional or Uni-directional binding? Prefer **Uni-direction**..
+          * Bi-directional or Uni-directional binding? Prefer **Uni-direction**.. ✔️
+          * **Note:** for performance consideration, try this method.
 
       * [x] <s>Redundant Pipes: combining and wrapping</s>
         * How to init it? How to run it? What about the skipEmpty?
           * Only the first processor has instreams: Limited use cases...
-        * Conclusion: Unimportant module with many issues to be pre-defined. **TODO** in future version
+        * Conclusion: Unimportant module with many issues to be pre-defined. **TODO** in the future version
       * [x] Setting limits for stream capacity... Avoid unlimited packet feeding.
         * [x] If stream is full, make it sleep for a while...
-      * [x] Need a thread-safe blocking queue, to reduce busy waiting. [ref](https://www.jianshu.com/p/c1dfa1d40f53)
+      * [x] Need a thread-safe blocking queue, to reduce busy waiting. [ref1](https://www.jianshu.com/p/c1dfa1d40f53), [ref2](https://blog.csdn.net/big_yellow_duck/article/details/52601543)
         * [x] Add a getPacket method for Stream class: conditional variable!
 
-      * [ ] A safe way to end the pipeline:  finish/over packet signal for packet
-      * [ ] A better way to control how many frames processed?
-      * [ ] Multi-Threading timing
+      * [x] A safe way to end the pipeline:  finish/over packet signal for packet
+      * [x] Multi-Threading timing:
+        * Overall process time per frame: time the main thread. By blocking mechanism, the main thread timing is quite accurate.
+        * Component processing time: include waiting time or not? Ans: **not include**
+      * [ ] Try to generate a Gantt chart for demo? need to add **glog** support! **TODO**
+      * [ ] **skipEmptyCheck issue**: 
 
     * Goal: Given timing info of each pipeProcessor and maximal number of useful phy threads, how to automatically schedule the pipe graph onto different threads?
 
@@ -139,6 +143,7 @@ Processors:
       2. Find the most time consuming processors, try to pipeline them into different stages
       3. #Threads < Max#Threads
       4. Pay great attention to dependencies!
+      5. 
   * [ ] Heterogeneous Arch:
     
     * [ ] Thread allocation & scheduling
