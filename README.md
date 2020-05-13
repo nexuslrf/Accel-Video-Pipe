@@ -133,7 +133,6 @@ Processors:
         * Overall process time per frame: time the main thread. By blocking mechanism, the main thread timing is quite accurate.
         * Component processing time: include waiting time or not? Ans: **not include**
       * [ ] Try to generate a Gantt chart for demo? need to add **glog** support! **TODO**
-      * [ ] **skipEmptyCheck issue**: 
 
     * Goal: Given timing info of each pipeProcessor and maximal number of useful phy threads, how to automatically schedule the pipe graph onto different threads?
 
@@ -143,7 +142,6 @@ Processors:
       2. Find the most time consuming processors, try to pipeline them into different stages
       3. #Threads < Max#Threads
       4. Pay great attention to dependencies!
-      5. 
   * [ ] Heterogeneous Arch:
     
     * [ ] Thread allocation & scheduling

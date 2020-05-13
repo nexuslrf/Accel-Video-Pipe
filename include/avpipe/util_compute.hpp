@@ -7,8 +7,9 @@ namespace avp {
 class TemplateProcessor: public PipeProcessor {
     std::function<void(DataList&, DataList&)> runFunc_ptr;
 public:
-    TemplateProcessor(int num_input, int num_output, std::function<void(DataList&, DataList&)> func_ptr=NULL,
-        bool skip_empty_check=false, PackType out_data_type=AVP_TENSOR, string pp_name="", PPType process_type=STREAM_PROC):
+    TemplateProcessor(int num_input, int num_output, std::function<void(DataList&, DataList&)> func_ptr=NULL, 
+    bool skip_empty_check=false, PackType out_data_type=AVP_TENSOR, string pp_name="templateProcessor", 
+    PPType process_type=STREAM_PROC):
         PipeProcessor(num_input, num_output, out_data_type, pp_name, process_type), runFunc_ptr(func_ptr)
     {
         skipEmptyCheck = skip_empty_check;
@@ -23,7 +24,7 @@ class TimeUpdater: public PipeProcessor {
 public:
     int timeStep;
     TimeUpdater(int num_stream, int time_step=1, PackType out_data_type=AVP_TENSOR, 
-            string pp_name="", PPType process_type=STREAM_PROC): 
+            string pp_name="timeUpdater", PPType process_type=STREAM_PROC): 
         PipeProcessor(num_stream, num_stream, out_data_type, pp_name, process_type), timeStep(time_step)
     {
         skipEmptyCheck = true;

@@ -33,7 +33,7 @@ class TensorRTProcessor: public NNProcessor {
     std::vector<std::vector<int64_t>> mOutputDims;
 public:
     TensorRTProcessor(SizeVector input_dims, DataLayout data_layout, std::string model_path, long long workspace_size_MiB=2048, int num_output=1,
-        std::string pp_name = ""): NNProcessor(input_dims, TENSORRT, data_layout, num_output, pp_name)
+        std::string pp_name = "TensorRTProcessor"): NNProcessor(input_dims, TENSORRT, data_layout, num_output, pp_name)
     {
         auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
         auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetwork());

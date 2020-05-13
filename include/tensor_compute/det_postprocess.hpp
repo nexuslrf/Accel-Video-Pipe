@@ -8,7 +8,7 @@ namespace avp {
 class LandMarkMaxPred: public PipeProcessor {
 public:
     bool outputProb;
-    LandMarkMaxPred(bool output_prob = true, std::string pp_name=""): 
+    LandMarkMaxPred(bool output_prob = true, std::string pp_name="LandMarkMaxPred"): 
         PipeProcessor(1, 2, AVP_TENSOR, pp_name, STREAM_PROC), outputProb(output_prob)
     {
         if(!outputProb)
@@ -40,7 +40,7 @@ public:
 class PredToKeypoint: public PipeProcessor {
 public:
     int sigma;
-    PredToKeypoint(int sigma_val=2, std::string pp_name=""): PipeProcessor(2, 1, AVP_TENSOR, pp_name, STREAM_PROC)
+    PredToKeypoint(int sigma_val=2, std::string pp_name="PredToKeypoint"): PipeProcessor(2, 1, AVP_TENSOR, pp_name, STREAM_PROC)
     {
         sigma = sigma_val;
     }
@@ -100,7 +100,7 @@ public:
     int numKeypoints;
     int outDims;
     torch::Tensor anchors;
-    DecodeDetBoxes(int num_anchors, string anchor_file, int dst_h, int dst_w, int num_keypts, string pp_name=""): 
+    DecodeDetBoxes(int num_anchors, string anchor_file, int dst_h, int dst_w, int num_keypts, string pp_name="DecodeDetBoxes"): 
         PipeProcessor(1, 1, AVP_TENSOR, pp_name, STREAM_PROC), numAnchors(num_anchors), 
         dstHeight(dst_h), dstWidth(dst_w), numKeypoints(num_keypts)
     {
@@ -212,7 +212,8 @@ class NonMaxSuppression: public PipeProcessor {
 public:
     float scoreClipThrs, minScoreThrs, minSuppressionThrs;
     int numKeypoints, scoreDim;
-    NonMaxSuppression(int num_keypts, float clip_t=100.0, float score_t=0.8, float suppression_t=0.3, string pp_name=""): 
+    NonMaxSuppression(int num_keypts, float clip_t=100.0, float score_t=0.8, 
+        float suppression_t=0.3, string pp_name="NonMaxSuppression"): 
         PipeProcessor(2, 2, AVP_TENSOR, pp_name, STREAM_PROC), scoreClipThrs(clip_t), minScoreThrs(score_t), 
         minSuppressionThrs(suppression_t), numKeypoints(num_keypts) //int dst_h, int dst_w, int obj_up_id, int obj_down_id,  dstHeight(dst_h), dstWidth(dst_w), objUpId(obj_up_id), objDownId(obj_down_id)
     {
@@ -291,8 +292,8 @@ class LandMarkToDet: public PipeProcessor {
     Tensor selectedPointIdx;
 
 public:
-    LandMarkToDet(std::vector<int> points_idx={}, string pp_name=""): PipeProcessor(1,1,AVP_TENSOR,pp_name,STREAM_PROC),
-        selectedPointIdx_vec(points_idx)
+    LandMarkToDet(std::vector<int> points_idx={}, string pp_name="LandMarkToDet"): 
+        PipeProcessor(1,1,AVP_TENSOR,pp_name,STREAM_PROC), selectedPointIdx_vec(points_idx)
     {
         selectedPointIdx = torch::from_blob(selectedPointIdx_vec.data(), {(int)selectedPointIdx_vec.size()}, torch::kI32).to(torch::kI64);
     }

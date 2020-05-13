@@ -19,7 +19,7 @@ class ONNXRuntimeProcessor: public NNProcessor {
 public:
     Ort::Env env;
     ONNXRuntimeProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, int num_output=1,
-        std::string pp_name = ""): NNProcessor(dims, ONNX_RT, data_layout, num_output, pp_name), 
+        std::string pp_name = "ONNXRuntimeProcessor"): NNProcessor(dims, ONNX_RT, data_layout, num_output, pp_name), 
         memInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)), env(ORT_LOGGING_LEVEL_WARNING, "test")
     {
         // env_ptr = &env;
