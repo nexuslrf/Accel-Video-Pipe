@@ -124,9 +124,10 @@ Processors:
         * Conclusion: Unimportant module with many issues to be pre-defined. **TODO** in future version
       * [x] Setting limits for stream capacity... Avoid unlimited packet feeding.
         * [x] If stream is full, make it sleep for a while...
-      * [ ] Need a thread-safe blocking queue, to reduce busy waiting...
+      * [x] Need a thread-safe blocking queue, to reduce busy waiting. [ref](https://www.jianshu.com/p/c1dfa1d40f53)
+        * [x] Add a getPacket method for Stream class: conditional variable!
 
-      * [ ] A safe way to end the pipeline,
+      * [ ] A safe way to end the pipeline:  finish/over packet signal for packet
       * [ ] A better way to control how many frames processed?
       * [ ] Multi-Threading timing
 

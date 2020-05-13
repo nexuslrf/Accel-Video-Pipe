@@ -13,9 +13,10 @@
 #include <vector>
 #include <tuple>
 #include <queue>
-#include <mutex>
 #include <cmath>
 #include <chrono>
+#include <mutex>
+#include <condition_variable>
 
 namespace avp {
 
@@ -190,6 +191,7 @@ enum StreamType {
 
 class Stream: public std::deque<StreamPacket>{
     std::mutex consumeMutex;
+    std::condition_variable loadCond, spaceCond;
 public:
     std::string name;
     int numConsume;
@@ -204,26 +206,35 @@ public:
         packet.numConsume = num_consume;
         for(auto &ptr: coupledStreams)
             ptr->loadPacket(packet);
-        std::lock_guard<std::mutex> guard(consumeMutex);
+        std::unique_lock<std::mutex> locker(consumeMutex);
+        spaceCond.wait(locker, [&](){return this->size()<=streamCapacity;});
         push_back(packet);
+        locker.unlock();
+        loadCond.notify_one();
     }
     //@TODO: Consume + while(!queue.empty())...
     void releasePacket(iterator& it)
     {
-        std::lock_guard<std::mutex> guard(consumeMutex);
-        it->numConsume--;
-        if(!it->numConsume&&it==begin())
         {
-            pop_front();
+            std::lock_guard<std::mutex> guard(consumeMutex);
+            it->numConsume--;
+            if(!it->numConsume&&it==begin())
+            {
+                pop_front();
+            }
         }
+        spaceCond.notify_one();
     }
     void releasePacket()
     {
-        std::lock_guard<std::mutex> guard(consumeMutex);
-        auto it = begin();
-        it->numConsume--;
-        if(!it->numConsume)
-            pop_front();
+        {
+            std::lock_guard<std::mutex> guard(consumeMutex);
+            auto it = begin();
+            it->numConsume--;
+            if(!it->numConsume)
+                pop_front();
+        }
+        spaceCond.notify_one();
     }
     void coupleStream(std::vector<Stream*> stream_ptr_list)
     {
@@ -231,6 +242,14 @@ public:
         {
             coupledStreams.push_back(ptr);
         }
+    }
+    StreamPacket& getPacket()
+    {
+        std::unique_lock<std::mutex> locker(consumeMutex);
+        loadCond.wait(locker, [this](){ return !this->empty();} );
+        // consider release packet here?
+        locker.unlock();
+        return front();
     }
 };
 
@@ -268,19 +287,6 @@ public:
 #endif
         checkStream();
 
-        // Capacity check...
-        for(auto &stream_ptr: outStreams)
-        {
-            if(stream_ptr->size() >= streamCapacity)
-            {
-#ifdef _LOG_INFO                
-                std::cerr<<"[INFO] "<<typeid(*this).name()<<" #unused packets exceed capacity!\n";
-#endif              
-                std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-                return;
-            }
-        }
-
         DataList in_data_list, out_data_list;
         int tmp_time=-2;
         bool packetEmpty = false; // streamEmpty = false, timeInconsistent = false;
@@ -289,28 +295,19 @@ public:
         {
             // Right now just assume all streams are coherent.
             StreamPacket in_data;
-            if(inStreams[i]->empty())
+
+            in_data = inStreams[i]->getPacket();
+            if(tmp_time==-2)
+                tmp_time = in_data.timestamp;
+            else if(tmp_time != in_data.timestamp)
             {
-                // streamEmpty = true; // Case checking 1
-#ifdef _LOG_INFO                
-                std::cerr<<"[WARNING] "<<typeid(*this).name()<<" streams are not all ready!\n";
-#endif                
-                return;
-            }
-            else
-            {
-                in_data = inStreams[i]->front();
-                if(tmp_time==-2)
-                    tmp_time = in_data.timestamp;
-                else if(tmp_time != in_data.timestamp)
-                {
-                    //timeInconsistent = true; // Case checking 2
+                //timeInconsistent = true; // Case checking 2
 #ifdef _LOG_INFO                    
-                    std::cerr<<"[WARNING] "<<typeid(*this).name()<<" inconsistent timestamps of inStream packets\n";
+                std::cerr<<"[WARNING] "<<typeid(*this).name()<<" inconsistent timestamps of inStream packets\n";
 #endif                    
-                    exit(1);//return;
-                }
+                exit(1);//return;
             }
+
             if(!skipEmptyCheck && in_data.empty())
             {
                 packetEmpty = true; // Case checking 3
@@ -319,6 +316,7 @@ public:
                 in_data_list.push_back(in_data); 
                 // No matter what case, in_data_list will be generated
         }
+
         if(timeTick == tmp_time)
         {
             // @TODO other ways!
@@ -327,6 +325,7 @@ public:
 #endif
             return;
         }
+
         if(numInStreams)
             timeTick = tmp_time;
         assert(timeTick >= 0);
@@ -425,3 +424,25 @@ public:
     // virtual void Stop() = 0;
 };
 }
+
+    // StreamPacket& getPacket()
+    // {
+    //     bool is_empty = empty();
+    //     std::__1::chrono::steady_clock::time_point stop1;
+    //     if(is_empty)
+    //     {
+    //         std::cout<<"Wait for Packet!\n";
+    //         stop1 = std::chrono::high_resolution_clock::now();
+    //     }
+    //     std::unique_lock<std::mutex> locker(consumeMutex);
+    //     loadCond.wait(locker, [this](){ return !this->empty();} );
+    //     // consider release packet here?
+    //     locker.unlock();
+    //     if(is_empty)
+    //     {
+    //         auto stop2 = std::chrono::high_resolution_clock::now();
+    //         auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(stop2-stop1).count();
+    //         std::cout<<"Time spent:" <<gap<<" ms\n";
+    //     }
+    //     return front();
+    // }
