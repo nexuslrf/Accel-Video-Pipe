@@ -8,7 +8,7 @@
     src_width: \`videoSrc.rawWidth`
     dst_height: 256
     dst_width: 256
-    flip_img: true
+    flip_img: false
     return_crop: true
   binding:
   - label: videoSrc
@@ -109,7 +109,7 @@
   - label: HandCNN
     idx: 1
   - label: palmRotateCropResize
-    idx: 0
+    idx: 3
   - label: palmRotateCropResize
     idx: 1
   - label: palmRotateCropResize
@@ -121,8 +121,7 @@
     r: 4
   binding: 
   - label: rotateBack
-  - label: crop
-    idx: 1
+  - label: drawDet
 
 - PipeProcessor: StreamShowProcessor
   label: imshow_kp
@@ -131,3 +130,12 @@
   binding:
   - label: drawKeypoint
 
+- PipeProcessor: DrawDetBoxes
+  label: drawDet
+  args:
+    h_scale: \`crop.cropHeight`
+    w_scale: \`crop.cropWidth`
+  binding:
+  - label: NMS 
+  - label: crop
+    idx: 1

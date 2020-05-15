@@ -140,11 +140,11 @@
     num_keypts: 21
     skip_thrs: 0.8
   inStreams:
-  - label: raw_keypoints
-    label: scores
-    label: cropObjs
-    label: affineMat
-    label: rotCenters
+  - label: keypoints
+  - label: scores
+  - label: cropObjs
+  - label: affineMat
+  - label: rotCenters
   outStreams:
   - label: rotated_keypoints
 

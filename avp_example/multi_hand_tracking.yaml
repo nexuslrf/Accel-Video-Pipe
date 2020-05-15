@@ -8,7 +8,7 @@
     src_width: \`videoSrc.rawWidth`
     dst_height: 256
     dst_width: 256
-    flip_img: true
+    flip_img: false
     return_crop: true
   binding:
   - label: videoSrc
