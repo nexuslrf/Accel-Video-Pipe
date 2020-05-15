@@ -34,7 +34,7 @@ def dict_has(key, cfg):
     return (key in cfg) and (cfg[key] is not None)
 
 # take in cfg and generate graphviz label
-def gen_GV_label(cfg, horizontal=False, show_timing=False):
+def gen_gv_label(cfg, horizontal=False, show_timing=False):
     if show_timing and 'timing_info' in cfg:
         proc_label = f"{cfg['label']}:\\n{cfg['PipeProcessor']}\\nTiming: {cfg['timing_info']}ms"
     else:
@@ -88,6 +88,16 @@ def gen_cpp_params(cfg, default_cfg):
     if params != "":
         params = params[:-2]
     return params
+
+# proc type:
+#   proc: 0, src: 1, sink: 2
+def get_proc_type(cfg):
+    proc_type = 0
+    if len(cfg['inStreams']) == 0:
+        proc_type = 1
+    elif len(cfg['outStreams']) == 0:
+        proc_type = 2
+    return proc_type
 
 if __name__ == "__main__":
     configs_map = default_configs_map("avp_template/default-configs.yaml")
