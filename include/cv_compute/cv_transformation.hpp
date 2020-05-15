@@ -46,9 +46,10 @@ public:
         {
             Mat tmp_mat, crop_mat;
             crop_mat = in_mat(ROI);
-            cv::resize(crop_mat, tmp_mat, {dstWidth, dstHeight}, 0, 0, cv::INTER_LINEAR);
             if(flip)
-                cv::flip(tmp_mat, tmp_mat, +1);
+                cv::flip(crop_mat, crop_mat, +1);
+            cv::resize(crop_mat, tmp_mat, {dstWidth, dstHeight}, 0, 0, cv::INTER_LINEAR);
+            
             out_data_list[0].loadData(tmp_mat);
             if(returnCrop)
                 out_data_list[1].loadData(crop_mat);
