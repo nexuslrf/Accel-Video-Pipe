@@ -128,7 +128,7 @@ class AVP_Automation:
                 # g.edge(stream['label']+f':<out{out_idx}>:s', cfg['label']+f':<in{i}>:n')
         g.view("AVP_"+self.task_name, self.out_path)
 
-    def code_gen(self, additional_includes=[], loop_len=20, pass_info=True, profile=False):
+    def code_gen(self, additional_includes=[], loop_len=20, pass_info=False, profile=False):
         cpp_file_name = self.task_name + '.cpp'
         self.cpp_file_name = os.path.join(self.out_path, cpp_file_name)
 
@@ -309,7 +309,9 @@ class AVP_Automation:
         self.visualize(show_timing=True)
 
     def multi_threading(self, max_num_threads=2, heavy_time_thres=0):
-        threads = [self.orderings]
+        tmp_threads = [self.orderings]
+        set_threads = []
+        threads = []
         def get_thread_time(thread):
             t = 0
             for label in thread:
@@ -335,52 +337,33 @@ class AVP_Automation:
                 dependency_list = dependency_list[1:]
             return dependency_list
 
-        def get_thread_dependency(thread, dep_type='all'):
-            assert dep_type in ['successors', 'predecessors', 'all']
-            dep_list = []
-            if dep_type != 'predecessors':
-                for label in thread:
-                    cfg = self.task_components_map[label]
-                    for dep_cfg in cfg['feeding']:
-                        dep_label = dep_cfg['label']
-                        if dep_label not in thread and dep_label not in dep_list:
-                            dep_list.append((dep_label, 'successors'))
-
-            if dep_type != 'successors':
-                for label in thread:
-                    cfg = self.task_components_map[label]
-                    for dep_cfg in cfg['binding']:
-                        dep_label = dep_cfg['label']
-                        if dep_label not in thread and dep_label not in dep_list:
-                            dep_list.append((dep_label, 'predecessors'))
-
-            dep_list.sort(key=lambda x: self.task_components_map[x[0]]['timing_info'])
-            return dep_list
-
-        def add_thread(thread):
+        def add_thread(thread, final=False):
             if len(thread) != 0:
-                threads.append(thread)
+                if final:
+                    set_threads.append(thread)
+                else:
+                    tmp_threads.append(thread)
+
+        def get_num_threads():
+            return len(tmp_threads) + len(set_threads)
 
         total_t = get_thread_time(self.orderings)
-        timing_order = sorted(self.orderings, reverse=True,
-                            key=lambda x: self.task_components_map[x]['timing_info'])
         if heavy_time_thres <= 0:
-            thres_t = self.task_components_map[timing_order[0]]['timing_info']
+            max_label = max(self.orderings, key=lambda x: self.task_components_map[x]['timing_info'])
+            thres_t = self.task_components_map[max_label]['timing_info']
         else:
             thres_t = total_t * heavy_time_thres
         
-        idx = 0
         prev_num_threads = 0
-        while max_num_threads > len(threads) and len(threads) > prev_num_threads:
-            label = timing_order[idx]; idx+=1
-            prev_num_threads = len(threads)
-            # find the label in the threads
-            thread = []
-            for t in threads:
-                if label in t:
-                    thread = t
-                    break
-            threads.remove(thread)
+        while max_num_threads > get_num_threads() and get_num_threads() > prev_num_threads:
+            # select the most time consuming thread
+            thread = max(tmp_threads, key=lambda x: get_thread_time(x))
+            label = max(thread, key=lambda x: self.task_components_map[x]['timing_info'])
+            prev_num_threads = get_num_threads()
+            tmp_threads.remove(thread)
+            if get_thread_time(thread) <= thres_t:
+                add_thread(thread, True)
+                continue
 
             # try to traverse all predecessors & successors
             predecessors = get_dependency(label, 'predecessors', thread)
@@ -389,13 +372,35 @@ class AVP_Automation:
             unrelated.sort(key=lambda x: self.task_components_map[x]['timing_info'], reverse=True)
             thread = [label]
 
-            if max_num_threads - len(threads) >= 3:
+            if max_num_threads - get_num_threads() >= 3:
                 tmp_thread = [label]
 
-                while get_thread_time(tmp_thread) <= thres_t:
+                while get_thread_time(tmp_thread) < thres_t:
                     # combining
                     thread = tmp_thread[:]
-                    dep_list = get_thread_dependency(thread)
+
+                    dep_list = []
+                    # get thread adjacent dependency
+                    pre_suc = False  # False: pre; True: suc
+                    for t_label in thread:
+                        cfg = self.task_components_map[label]
+                        if not pre_suc:
+                            for dep_cfg in cfg['binding']:
+                                dep_label = dep_cfg['label']
+                                if dep_label not in thread and (dep_label,'predecessors') not in dep_list:
+                                    dep_list.append((dep_label, 'predecessors'))
+
+                        if t_label == label:
+                            pre_suc = True
+
+                        if pre_suc:
+                            for dep_cfg in cfg['feeding']:
+                                dep_label = dep_cfg['label']
+                                if dep_label not in thread and (dep_label, 'successors') not in dep_list:
+                                    dep_list.append((dep_label, 'successors'))
+
+                    dep_list.sort(key=lambda x: self.task_components_map[x[0]]['timing_info'])
+
                     candidate = None
                     for dep in dep_list:
                         if dep[1] == 'predecessors':
@@ -436,10 +441,10 @@ class AVP_Automation:
                         thread = thread.append(u_label)
 
                 add_thread(predecessors)
-                add_thread(thread)
+                add_thread(thread, True)
                 add_thread(successors)
                 
-            elif max_num_threads - len(threads) == 2:
+            elif max_num_threads - get_num_threads() == 2:
                 # pay attention to unrelated
                 for u_label in unrelated:
                     pre_t = get_thread_time(predecessors)
@@ -462,10 +467,11 @@ class AVP_Automation:
                     thread = predecessors + thread
                     side_thread = successors
                 
-                add_thread(thread)
+                add_thread(thread, True)
                 add_thread(side_thread)
 
             # there's no case when max_num_threads - len(threads) == 1
+        threads = tmp_threads + set_threads
         return threads
 
     def optimize(self):
@@ -476,26 +482,45 @@ if __name__ == "__main__":
     default_configs = root_dir + "avp_template/default-configs.yaml"
     pose_yaml = root_dir + "avp_example/pose_estimation.yaml"
     hand_yaml = root_dir + "avp_example/multi_hand_tracking.yaml"
-    avp_task = AVP_Automation(pose_yaml, default_configs)
+    hand_no_loop_yaml = root_dir + "avp_example/multi_hand_tracking_no_loopback.yaml"
+    avp_task = AVP_Automation(hand_no_loop_yaml, default_configs)
     # avp_task.visualize()
     # avp_task.code_gen(loop_len=200)
     # avp_task.cmake_cpp()
     # avp_task.cpp_build()
     # avp_task.profile()
     # --- For Dev ---
+    # timing_info = \
+    # [
+    #     ('videoSrc', 2.06),
+    #     ('crop', 0.16),
+    #     ('normalization', 0.62),
+    #     ('matToTensor', 0.32),
+    #     ('CNN', 80.38),
+    #     ('filter', 2.84),
+    #     ('maxPred', 0.18),
+    #     ('getKeypoint', 0.02),
+    #     ('draw', 0.04),
+    #     ('imshow', 23.28)
+    # ]
     timing_info = \
-    [
-        ('videoSrc', 2.06),
-        ('crop', 0.16),
-        ('normalization', 0.62),
-        ('matToTensor', 0.32),
-        ('CNN', 80.38),
-        ('filter', 2.84),
-        ('maxPred', 0.18),
-        ('getKeypoint', 0.02),
-        ('draw', 0.04),
-        ('imshow', 23.28)
-    ]
+        [
+            ('videoSrc', 11.54),
+            ('crop', 0),
+            ('normalization', 0.26),
+            ('matToTensor', 0.06),
+            ('PalmCNN', 37.24),
+            ('decodeBoxes', 0.1),
+            ('NMS', 0.06),
+            ('palmRotateCropResize', 4.55102),
+            ('normalization2', 0.122449),
+            ('multiCropToTensor', 0),
+            ('HandCNN', 33.8776),
+            ('rotateBack', 0),
+            ('drawKeypoint', 0),
+            ('imshow_kp', 22.82),
+            ('drawDet', 0)
+        ]
     for label, t in timing_info:
         avp_task.task_components_map[label]['timing_info'] = t
     
