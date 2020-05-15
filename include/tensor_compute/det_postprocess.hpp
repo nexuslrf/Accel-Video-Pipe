@@ -221,8 +221,8 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto detScores = in_data_list[0].tensor().clamp(-scoreClipThrs, scoreClipThrs).sigmoid().squeeze(-1);;
-        auto detBoxes = in_data_list[1].tensor();
+        auto detBoxes = in_data_list[0].tensor();
+        auto detScores = in_data_list[1].tensor().clamp(-scoreClipThrs, scoreClipThrs).sigmoid().squeeze(-1);
         auto mask = detScores >= minScoreThrs;
         int bs = 1; // detBoxes.size(0);
         /* Attention BS must be one!!!

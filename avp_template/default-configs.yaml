@@ -143,8 +143,8 @@
   - label: raw_keypoints
     label: scores
     label: cropObjs
-    label: AffineMat
-    label: RotCenters
+    label: affineMat
+    label: rotCenters
   outStreams:
   - label: rotated_keypoints
 

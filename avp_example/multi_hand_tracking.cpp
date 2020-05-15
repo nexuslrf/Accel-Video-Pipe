@@ -78,7 +78,7 @@ int main()
     matToTensor.bindStream({&pipe[2]}, {&pipe[3]});
     PalmCNN.bindStream({&pipe[3]}, {&pipe[4], &pipe[5]});
     decodeBoxes.bindStream({&pipe[4]}, {&pipe[6]});
-    NMS.bindStream({&pipe[5], &pipe[6]}, {&pipe[7], &pipe[8]});
+    NMS.bindStream({&pipe[6], &pipe[5]}, {&pipe[7], &pipe[8]});
     // drawDet.bindStream({&pipe[7], &pipe[1]}, {&pipe[10]});
     // imshow.bindStream(&pipe[10], avp::AVP_STREAM_IN);
     streamMerger.bindStream({&pipe[7], &pipe[8], &pipe[25], &pipe[24], &pipe[14]}, 
