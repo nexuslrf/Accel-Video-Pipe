@@ -48,7 +48,10 @@ class AVP_Automation:
             # complete outStreams for task components
             for i, stream in enumerate(cfg['binding']):
                 label = stream['label']
-                self.task_components_map[label]['feeding'].append({'label': cfg['label'], 'idx': i})
+                feeding_stream = {'label': cfg['label'], 'idx': i}
+                if 'async_time' in stream and stream['async_time']:
+                    feeding_stream['async_time'] = True
+                self.task_components_map[label]['feeding'].append(feeding_stream)
                 idx = 0 
                 if 'idx' in stream:
                     idx = stream['idx']
@@ -65,42 +68,8 @@ class AVP_Automation:
                         tar_outStreams.append(default_outStreams[length])
                     else:
                         tar_outStreams.append({'label': f'out[{length}]'})
-
-        # analyze the topology order of input pipeProcessors
-        for cfg in self.task_configs:
-            cfg_label = cfg['label']
-            if len(cfg['binding']) == 0 and len(cfg['outStreams']) != 0:
-                self.orderings.append(cfg_label)
-        
-        if len(self.orderings) == 0:
-            print_err("no available source PipeProcessor!")
-        
-        # nodes can be computed in addition to source processor
-        for cfg in self.task_configs:
-            runnable = False
-            for pipe in cfg['binding']:
-                if ('async_time' not in pipe) or not pipe['async_time']:
-                    runnable = False
-                    break
-                else:
-                    runnable = True
-            if runnable and (cfg['label'] in self.orderings):
-                self.orderings.append(cfg['label'])
-        
-        # use a topology sorting to get processor order
-        pivot = 0
-        while pivot<len(self.orderings):
-            for p in self.task_components_map[self.orderings[pivot]]['feeding']:
-                p_label = p['label']
-                runnable  = True
-                for b in self.task_components_map[p_label]['binding']:
-                    if b['label'] not in self.orderings and \
-                        (('async_time' not in b) or not b['async_time']):
-                        runnable = False
-                        break
-                if runnable and p_label not in self.orderings:
-                    self.orderings.append(p_label)
-            pivot += 1
+                        
+        self.orderings = self.topology_sort(self.task_configs)
                         
     def configs_checking(self):
         for cfg in self.task_configs:
@@ -115,6 +84,50 @@ class AVP_Automation:
                 for arg, val in cfg['args'].items():
                     if arg not in default_cfg['args']:
                         print_err(f"Unknown arg: {cfg_name}.{arg}")
+    
+    def topology_sort(self, thread):
+        if len(thread) and type(thread[0]) == dict:
+            thread = [item['label'] for item in thread]
+        # analyze the topology order of input pipeProcessors
+        topo_order = []
+        # scan to get source node:
+        # 1. no binding procs; 2. bindings are async; 3. bindings not in thread
+        for label in thread:
+            cfg = self.task_components_map[label]
+            if len(cfg['binding']) == 0 and len(cfg['outStreams']) != 0:
+                topo_order.append(label)
+                continue
+            # nodes can be computed in addition to source processor
+            runnable = False
+            for pipe in cfg['binding']:
+                if (('async_time' not in pipe) or not pipe['async_time']) and pipe['label'] in thread:
+                    runnable = False
+                    break
+                else:
+                    runnable = True
+            if runnable and label not in topo_order:
+                topo_order.append(label)
+
+        if len(topo_order) == 0:
+            print_err("no available source PipeProcessor!")
+        
+        # use a topology sorting to get processor order
+        pivot = 0
+        while pivot<len(topo_order):
+            for p in self.task_components_map[topo_order[pivot]]['feeding']:
+                p_label = p['label']
+                if p_label not in thread:
+                    continue
+                runnable  = True
+                for b in self.task_components_map[p_label]['binding']:
+                    if b['label'] not in topo_order and \
+                        (('async_time' not in b) or not b['async_time']) and b['label'] in thread:
+                        runnable = False
+                        break
+                if runnable and p_label not in topo_order:
+                    topo_order.append(p_label)
+            pivot += 1
+        return topo_order
 
     def visualize(self, show_timing=False):
         g = Digraph("AVP_"+self.task_name)
@@ -318,6 +331,7 @@ class AVP_Automation:
                 t += self.task_components_map[label]['timing_info']
             return t
         
+        # Note: this dependency list cannot guarantee the topology order.
         def get_dependency(label, dep_type='successors', thread=[]):
             dependency_list = [label]
             pivot = 0
@@ -328,6 +342,8 @@ class AVP_Automation:
                 cfg = self.task_components_map[tmp_label]
                 for item in cfg[stream_key]:
                     if len(thread)==0 or item['label'] in thread:
+                        if 'async_time' in item and item['async_time']:
+                            continue
                         if item['label'] not in dependency_list:
                             dependency_list.append(item['label'])
                 pivot += 1
@@ -366,8 +382,8 @@ class AVP_Automation:
                 continue
 
             # try to traverse all predecessors & successors
-            predecessors = get_dependency(label, 'predecessors', thread)
-            successors = get_dependency(label, 'successors', thread)
+            predecessors = self.topology_sort(get_dependency(label, 'predecessors', thread))
+            successors = self.topology_sort(get_dependency(label, 'successors', thread))
             unrelated = list(set(thread) - set(predecessors) - set(successors) - set([label]))
             unrelated.sort(key=lambda x: self.task_components_map[x]['timing_info'], reverse=True)
             thread = [label]
@@ -471,11 +487,47 @@ class AVP_Automation:
                 add_thread(side_thread)
 
             # there's no case when max_num_threads - len(threads) == 1
-        threads = tmp_threads + set_threads
-        return threads
 
-    def optimize(self):
-        pass
+        threads = tmp_threads + set_threads
+        # find the main thread and put it in the back of the threads list
+        main_threads = []
+        for thread in threads:
+            main_procs = []
+            for label in thread:
+                cfg = self.default_configs_map[self.task_components_map[label]['PipeProcessor']]
+                if 'mainThread' in cfg and cfg['mainThread']:
+                    main_procs.append(label)
+            if len(main_procs) != 0:
+                main_threads.append((thread, main_procs))
+        
+        # remove main_threads from threads
+        for thread, _ in main_threads:
+            threads.remove(thread)
+
+        if len(main_threads) > 1:
+            main_thread = min(main_threads, key=lambda x: get_thread_time(x[0]))[0]
+            main_threads.remove(main_thread)
+            for thread, main_procs in main_threads:
+                merge_procs = []
+                for label in main_procs:
+                    merge_procs += (get_dependency(label, 'successors', thread) + [label])
+                merge_procs = list(set(merge_procs))
+                for label in merge_procs:
+                    thread.remove(label)
+                threads.append(thread)
+                main_thread += merge_procs
+            main_thread = self.topology_sort(main_thread)
+
+        elif len(main_threads) == 1:
+            main_thread = main_threads[0][0]
+
+        if len(main_threads) == 0:
+            main_thread = max(threads, key=lambda x: get_thread_time(x))
+            threads.remove(main_thread)
+        
+        threads.append(main_thread)
+
+        return threads
 
 if __name__ == "__main__":
     root_dir = "/Users/liangruofan1/Program/Accel-Video-Pipe/"
@@ -483,7 +535,7 @@ if __name__ == "__main__":
     pose_yaml = root_dir + "avp_example/pose_estimation.yaml"
     hand_yaml = root_dir + "avp_example/multi_hand_tracking.yaml"
     hand_no_loop_yaml = root_dir + "avp_example/multi_hand_tracking_no_loopback.yaml"
-    avp_task = AVP_Automation(hand_no_loop_yaml, default_configs)
+    avp_task = AVP_Automation(hand_yaml, default_configs)
     # avp_task.visualize()
     # avp_task.code_gen(loop_len=200)
     # avp_task.cmake_cpp()
@@ -503,28 +555,47 @@ if __name__ == "__main__":
     #     ('draw', 0.04),
     #     ('imshow', 23.28)
     # ]
-    timing_info = \
-        [
-            ('videoSrc', 11.54),
-            ('crop', 0),
-            ('normalization', 0.26),
-            ('matToTensor', 0.06),
-            ('PalmCNN', 37.24),
-            ('decodeBoxes', 0.1),
-            ('NMS', 0.06),
-            ('palmRotateCropResize', 4.55102),
-            ('normalization2', 0.122449),
-            ('multiCropToTensor', 0),
-            ('HandCNN', 33.8776),
-            ('rotateBack', 0),
-            ('drawKeypoint', 0),
-            ('imshow_kp', 22.82),
-            ('drawDet', 0)
-        ]
+    # timing_info = \
+    #     [
+    #         ('videoSrc', 11.54),
+    #         ('crop', 0),
+    #         ('normalization', 0.26),
+    #         ('matToTensor', 0.06),
+    #         ('PalmCNN', 37.24),
+    #         ('decodeBoxes', 0.1),
+    #         ('NMS', 0.06),
+    #         ('palmRotateCropResize', 4.55102),
+    #         ('normalization2', 0.122449),
+    #         ('multiCropToTensor', 0),
+    #         ('HandCNN', 33.8776),
+    #         ('rotateBack', 0),
+    #         ('drawKeypoint', 0),
+    #         ('imshow_kp', 22.82),
+    #         ('drawDet', 0)
+    #     ]
+    timing_info = [
+        ('videoSrc', 12.16),
+        ('crop', 0.02),
+        ('multiplexer', 0),
+        ('normalization', 0.333333),
+        ('matToTensor', 0),
+        ('PalmCNN', 38.5),
+        ('decodeBoxes', 0.333333),
+        ('NMS', 0.0555556),
+        ('normalization2', 0.0204082),
+        ('multiCropToTensor', 0),
+        ('HandCNN', 32.4694),
+        ('rotateBack', 0),
+        ('drawKeypoint', 0),
+        ('imshow_kp', 26.86),
+        ('keypointToBndBox', 0),
+        ('streamMerger', 4.56),
+        ('timeUpdate', 0)
+    ]
     for label, t in timing_info:
         avp_task.task_components_map[label]['timing_info'] = t
     
-    threads = avp_task.multi_threading(4)
+    threads = avp_task.multi_threading(6)
     print(threads)
     # --- ---
     print("pass")

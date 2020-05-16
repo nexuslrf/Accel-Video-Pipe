@@ -9,6 +9,7 @@
   args:
     wait_time: 1
     show_name: ""
+  mainThread: true
   inStreams:
   - label: matImage
   outStreams: []
