@@ -110,33 +110,40 @@ Processors:
       * [x] Hand
       
     * Problems:
-    * Timing sync: Fast-Slow Problem: one thread consuming faster than another thread on the same stream, which causes time wasting? 
-    
-      Consider 3 solutions: 
-    
+      * Timing sync: Fast-Slow Problem: one thread consuming faster than another thread on the same stream, which causes time wasting? 
+
+        Consider 3 solutions: 
+
         * [x] The faster one wait for the slower one ✔️
         * [x] <s>Async pointer for each pipe in each pipeprocessor: **TODO **</s> ❌
           * [Behavior of deque iterator](https://stackoverflow.com/questions/10373985/c-deque-when-iterators-are-invalidated) makes it very hard to keep tracking... *Just give up*...
         * [x] Do not use one pipe as multiple inStreams across different threads.
           * Bi-directional or Uni-directional binding? Prefer **Uni-direction**.. ✔️
-        * **Note:** for performance consideration, try this method.
-    
-      * [x] <s>Redundant Pipes: combining and wrapping</s>
+          * **Note:** for performance consideration, try this method.
+          * When to add `coupledStreams`: the same outStream is consumed by multiple threads, including the thread generating this outStream.
+
+      * [x] <s>Redundant Pipes: combining and wrapping</s> ❌
+        
         * How to init it? How to run it? What about the skipEmpty?
           * Only the first processor has instreams: Limited use cases...
         * Conclusion: Unimportant module with many issues to be pre-defined. **TODO** in the future version
       * [x] Setting limits for stream capacity... Avoid unlimited packet feeding.
         
         * [x] If stream is full, make it sleep for a while...
-    * [x] Need a thread-safe blocking queue, to reduce busy waiting. [ref1](https://www.jianshu.com/p/c1dfa1d40f53), [ref2](https://blog.csdn.net/big_yellow_duck/article/details/52601543)
-      
+      * [x] Need a thread-safe blocking queue, to reduce busy waiting. [ref1](https://www.jianshu.com/p/c1dfa1d40f53), [ref2](https://blog.csdn.net/big_yellow_duck/article/details/52601543)
+        
       * [x] Add a getPacket method for Stream class: conditional variable!
         
       * [x] A safe way to end the pipeline:  finish/over packet signal for packet
       * [x] Multi-Threading timing:
-      * Overall process time per frame: time the main thread. By blocking mechanism, the main thread timing is quite accurate.
-      * Component processing time: include waiting time or not? Ans: **not include**
-    * [ ] Try to generate a Gantt chart for demo? need to add **glog** support! **TODO**
+        * Overall process time per frame: time the main thread. By blocking mechanism, the main thread timing is quite accurate.
+        * Component processing time: include waiting time or not? Ans: **not include**
+
+      * [x] **Bug**: LibTorch's memory management, need to be refined!
+        * `torch::from_blob` operator would overwrite the previous saved data_pointer
+        * **solution:** when a tensor is used in a queue, use `torch::empty` and `memcpy ` to bypass.
+
+      * [ ] Try to generate a Gantt chart for demo? need to add **glog** support! **TODO**
 
   * [x] Auto-Multi-threading:
 

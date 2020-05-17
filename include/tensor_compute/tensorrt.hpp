@@ -75,11 +75,18 @@ public:
         buffers.copyOutputToHost();
         for(size_t i=0; i < numOutStreams; i++)
         {
-            void* output = static_cast<void*>(buffers.getHostBuffer(outputNames[i]));
+            void* outPtr = static_cast<void*>(buffers.getHostBuffer(outputNames[i]));
             std::vector<int64_t> dims({bs});
             dims.insert(dims.end(), mOutputDims[i].begin(), mOutputDims[i].end());
-            auto outTensor = torch::from_blob(output, dims, torch::kF32);
-            out_data_list[i].loadData(outTensor);
+            Tensor output;
+            if(avp::numThreads > 1)
+            {
+                output = torch::empty(dims, torch::kF32);
+                memcpy(output.data_ptr(), outPtr, output.numel() * sizeof(float));
+            }
+            else
+                output = torch::from_blob(outPtr, dims, torch::kF32);
+            out_data_list[i].loadData(output);
         }
     }
 };

@@ -30,7 +30,8 @@ enum PackType {
     AVP_TENSOR = 1,
 };
 
-size_t streamCapacity = 30;
+size_t streamCapacity = 5;
+size_t numThreads = 1;
 
 class StreamPacket{
 public:

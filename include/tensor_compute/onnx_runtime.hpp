@@ -71,7 +71,14 @@ public:
         {
             float* rawPtr = outputTensors[i].Ort::Value::template GetTensorMutableData<float>();
             auto outDims = outputTensors[i].GetTypeInfo().GetTensorTypeAndShapeInfo().GetShape();
-            auto output = torch::from_blob(rawPtr, outDims);
+            Tensor output;
+            if(avp::numThreads > 1)
+            {
+                output = torch::empty(outDims, torch::kF32);
+                memcpy(output.data_ptr(), rawPtr, output.numel() * sizeof(float));
+            }
+            else
+                output = torch::from_blob(rawPtr, outDims);
             out_data_list[i].loadData(output);
         }
     }

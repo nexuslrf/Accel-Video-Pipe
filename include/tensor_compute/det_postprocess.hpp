@@ -221,6 +221,7 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
+        // std::cout<<"NMS SUM: "<<in_data_list[1].tensor().sum()<<"\n";
         auto detBoxes = in_data_list[0].tensor();
         auto detScores = in_data_list[1].tensor().clamp(-scoreClipThrs, scoreClipThrs).sigmoid().squeeze(-1);
         auto mask = detScores >= minScoreThrs;
