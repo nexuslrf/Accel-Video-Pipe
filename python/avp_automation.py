@@ -2,7 +2,7 @@
 import os
 from textwrap import indent
 from graphviz import Digraph
-from utils import read_yaml, print_err, dict_has, gen_gv_label, gen_cpp_params
+from utils import read_yaml, print_err, dict_has, gen_cpp_params
 
 class AVP_Automation:
     def __init__(self, task_configs_yaml, default_configs_yaml="../include/default-configs.yaml", task_name="", out_path="_output"):
@@ -132,16 +132,78 @@ class AVP_Automation:
             pivot += 1
         return topo_order
 
-    def visualize(self, show_timing=False):
-        g = Digraph("AVP_"+self.task_name)
+    def visualize(self, show_timing=False, show_streams=True, threads=[], show_bar=False, format='pdf'):
+        def gen_gv_label(cfg, horizontal=False, show_timing=False, show_streams=True):
+            if show_timing and 'timing_info' in cfg:
+                proc_label = f"{cfg['label']}:\\n{cfg['PipeProcessor']}\\nTiming: {cfg['timing_info']}ms"
+            else:
+                proc_label = f"{cfg['label']}:\\n{cfg['PipeProcessor']}"
+
+            if 'refs' in cfg and type(cfg['refs']) == list and len(cfg['refs']):
+                refs = ""
+                for label in cfg['refs']:
+                    ref_cfg = self.task_components_map[label]
+                    refs += f"[Ref] {label}:\\n{ref_cfg['PipeProcessor']}|"
+                refs = refs[:-1] if refs != "" else ""
+                proc_label += "|{" + refs + "}"
+                    
+            inStreams_layer = ""
+            outStreams_layer = ""
+
+            if show_streams:
+                # inStreams
+                for i, stream in enumerate(cfg['inStreams']):
+                    inStreams_layer += (f'<in{i}>'+stream['label'] + '|')
+                if inStreams_layer != "":
+                    inStreams_layer = "{" + inStreams_layer[:-1] + "}|"
+                
+                # outStreams
+                for i, stream in enumerate(cfg['outStreams']):
+                    outStreams_layer += (f'<out{i}>'+stream['label'] + '|')
+                if outStreams_layer != "":
+                    outStreams_layer = "|{" + outStreams_layer[:-1] + "}"
+
+            if horizontal:
+                return inStreams_layer + proc_label + outStreams_layer 
+            else:
+                return "{" + inStreams_layer + proc_label + outStreams_layer + "}" 
+
+        g = Digraph("AVP_"+self.task_name, format=format)
         g.attr(rankdir="TD", ratio=f'{4./3}', splines='spline')
+
+        drawn_procs = []
+        if len(threads) > 1:
+            with g.subgraph(name=f'cluster_color_bar', graph_attr={'label':f'Thread Color', 'ranksep':'0.1'}) as sg:
+                for i, thread in enumerate(threads):
+                    for label in thread:
+                        cfg = self.task_components_map[label]
+                        g.node(label, gen_gv_label(cfg, show_timing=show_timing, show_streams=show_streams), 
+                            shape='record', fillcolor=f'/set312/{i+1}', style='filled')
+                        drawn_procs.append(label)
+                    if show_bar:
+                        sg.node(f'thread_{i}', f'#0{i+1}', shape='record', fillcolor=f'/set312/{i+1}', style='filled')
+        
         for cfg in self.task_configs:
-            g.node(cfg['label'], gen_gv_label(cfg, show_timing=show_timing), shape='record')
+            if len(cfg['inStreams']) + len(cfg['outStreams']) != 0 and cfg['label'] not in drawn_procs:
+                g.node(cfg['label'], gen_gv_label(cfg, show_timing=show_timing, show_streams=show_streams), 
+                    shape='record')
+        
+        edge_list = []
         for cfg in self.task_configs:
             for i, stream in enumerate(cfg['binding']):
-                out_idx = stream['idx']
-                g.edge(stream['label']+f':<out{out_idx}>', cfg['label']+f':<in{i}>')
-                # g.edge(stream['label']+f':<out{out_idx}>:s', cfg['label']+f':<in{i}>:n')
+                line_style = 'solid'
+                if 'async_time' in stream and stream['async_time']:
+                    line_style = 'dashed'
+                if show_streams:
+                    out_idx = stream['idx']
+                    g.edge(stream['label']+f':<out{out_idx}>', cfg['label']+f':<in{i}>', style=line_style)
+                    # g.edge(stream['label']+f':<out{out_idx}>:s', cfg['label']+f':<in{i}>:n')
+                else:
+                    src_node = stream['label']; dst_node = cfg['label']
+                    if (src_node, dst_node) not in edge_list:
+                        g.edge(src_node, dst_node, style=line_style)
+                        edge_list.append((src_node, dst_node))
+                    
         g.view("AVP_"+self.task_name, self.out_path)
 
     def code_gen(self, additional_includes=[], loop_len=20, profile=False, threads=[], buffer_capacity=5):
@@ -605,71 +667,18 @@ if __name__ == "__main__":
     pose_yaml = root_dir + "avp_example/pose_estimation.yaml"
     hand_yaml = root_dir + "avp_example/multi_hand_tracking.yaml"
     hand_no_loop_yaml = root_dir + "avp_example/multi_hand_tracking_no_loopback.yaml"
-    avp_task = AVP_Automation(hand_yaml, default_configs)
-    # avp_task.visualize()
-    avp_task.code_gen(loop_len=200)
+    avp_task = AVP_Automation(pose_yaml, default_configs)
+    # avp_task.visualize(show_streams=False)
+    # avp_task.code_gen(loop_len=200)
     # avp_task.cmake_cpp()
     # avp_task.cpp_build()
     # avp_task.profile()
-    # --- For Dev ---
-    # timing_info = \
-    # [
-    #     ('videoSrc', 2.06),
-    #     ('crop', 0.16),
-    #     ('normalization', 0.62),
-    #     ('matToTensor', 0.32),
-    #     ('CNN', 80.38),
-    #     ('filter', 2.84),
-    #     ('maxPred', 0.18),
-    #     ('getKeypoint', 0.02),
-    #     ('draw', 0.04),
-    #     ('imshow', 23.28)
-    # ]
-    # timing_info = \
-    #     [
-    #         ('videoSrc', 11.54),
-    #         ('crop', 0),
-    #         ('normalization', 0.26),
-    #         ('matToTensor', 0.06),
-    #         ('PalmCNN', 37.24),
-    #         ('decodeBoxes', 0.1),
-    #         ('NMS', 0.06),
-    #         ('palmRotateCropResize', 4.55102),
-    #         ('normalization2', 0.122449),
-    #         ('multiCropToTensor', 0),
-    #         ('HandCNN', 33.8776),
-    #         ('rotateBack', 0),
-    #         ('drawKeypoint', 0),
-    #         ('imshow_kp', 22.82),
-    #         ('drawDet', 0)
-    #     ]
-    timing_info = [
-        ('videoSrc', 12.16),
-        ('crop', 0.02),
-        ('multiplexer', 0),
-        ('normalization', 0.333333),
-        ('matToTensor', 0),
-        ('PalmCNN', 38.5),
-        ('decodeBoxes', 0.333333),
-        ('NMS', 0.0555556),
-        ('normalization2', 0.0204082),
-        ('multiCropToTensor', 0),
-        ('HandCNN', 32.4694),
-        ('rotateBack', 0),
-        ('drawKeypoint', 0),
-        ('imshow_kp', 26.86),
-        ('keypointToBndBox', 0),
-        ('streamMerger', 4.56),
-        ('timeUpdate', 0)
-    ]
-    for label, t in timing_info:
-        avp_task.task_components_map[label]['timing_info'] = t
     
     threads = avp_task.multi_threading(4)
-    avp_task.code_gen(loop_len=200, threads=threads)
-    avp_task.cmake_cpp()
-    avp_task.cpp_build()
+    avp_task.visualize(show_streams=True, threads=threads, show_timing=True, format='png')
+    # avp_task.code_gen(loop_len=200, threads=threads)
+    # avp_task.cmake_cpp()
+    # avp_task.cpp_build()
     # avp_task.cpp_run()
-    print(threads)
-    # --- ---
+    # print(threads)
     print("pass")

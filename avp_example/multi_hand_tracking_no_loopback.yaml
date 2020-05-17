@@ -1,8 +1,10 @@
 - PipeProcessor: WebCamProcessor
   label: videoSrc
+  timing_info: 11.54
 
 - PipeProcessor: CenterCropResize
   label: crop
+  timing_info: 0
   args:
     src_height: \`videoSrc.rawHeight`
     src_width: \`videoSrc.rawWidth`
@@ -15,6 +17,7 @@
 
 - PipeProcessor: ImgNormalization
   label: normalization
+  timing_info: 0.26
   args:
     mean_var: 0.5
     stdev_var: 0.5
@@ -23,11 +26,13 @@
 
 - PipeProcessor: DataLayoutConvertion
   label: matToTensor
+  timing_info: 0.06
   binding:
   - label: normalization
 
 - PipeProcessor: ONNXRuntimeProcessor
   label: PalmCNN
+  timing_info: 37.24
   args:
     dims: [1,3,256,256]
     data_layout: \`avp::NCHW`
@@ -38,6 +43,7 @@
 
 - PipeProcessor: DecodeDetBoxes
   label: decodeBoxes
+  timing_info: 0.1
   args:
     num_anchors: 2944
     anchor_file: /Users/liangruofan1/Program/CV_Models/palm_detector/anchors.bin
@@ -50,6 +56,7 @@
 
 - PipeProcessor: NonMaxSuppression
   label: NMS
+  timing_info: 0.06
   args:
     num_keypts: 7
   binding:
@@ -59,6 +66,7 @@
 
 - PipeProcessor: RotateCropResize
   label: palmRotateCropResize
+  timing_info: 4.55102
   args:
     dst_h: 256
     dst_w: 256
@@ -79,6 +87,7 @@
 
 - PipeProcessor: ImgNormalization
   label: normalization2
+  timing_info: 0.122449
   args:
     mean_var: 0.5
     stdev_var: 0.5
@@ -88,11 +97,13 @@
 
 - PipeProcessor: DataLayoutConvertion
   label: multiCropToTensor
+  timing_info: 0
   binding:
   - label: normalization2
 
 - PipeProcessor: ONNXRuntimeProcessor
   label: HandCNN
+  timing_info: 33.8776
   args:
     dims: [0,3,256,256]
     data_layout: \`avp::NCHW`
@@ -103,6 +114,7 @@
 
 - PipeProcessor: RotateBack
   label: rotateBack
+  timing_info: 0
   binding:
   - label: HandCNN
     idx: 0
@@ -117,6 +129,7 @@
 
 - PipeProcessor: DrawLandMarks
   label: drawKeypoint
+  timing_info: 0
   args:
     r: 4
   binding: 
@@ -125,6 +138,7 @@
 
 - PipeProcessor: StreamShowProcessor
   label: imshow_kp
+  timing_info: 22.82
   args:
     wait_time: 1
   binding:
@@ -132,6 +146,7 @@
 
 - PipeProcessor: DrawDetBoxes
   label: drawDet
+  timing_info: 0
   args:
     h_scale: \`crop.cropHeight`
     w_scale: \`crop.cropWidth`
