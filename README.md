@@ -23,7 +23,7 @@ Accel-Video Pipe (AV-Pipe or AVP) is an integrated C++ library for AI video infe
 * Multi-platform: (Consider iOS/Android in the future...)
   * [x] Linux
   * [x] MacOS
-  * [ ] Windows (very soon)
+  * [x] Windows (see in [windows branch](https://github.com/nexuslrf/Accel-Video-Pipe/tree/windows))
 
 * Simple coding style. You can build a video inference pipeline with less than 50 lines of C++.
 
