@@ -70,7 +70,10 @@ def gen_cpp_params(cfg, default_cfg):
             final_val = cfg['args'][arg]
         else:
             final_val = val
-        if type(final_val) in (int, float):
+        
+        if final_val == None:
+            params += "NULL, "
+        elif type(final_val) in (int, float):
             params += f"{final_val}, "
         elif type(final_val) == str:
             final_val = final_val.rstrip()

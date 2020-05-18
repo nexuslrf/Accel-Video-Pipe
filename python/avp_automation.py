@@ -243,8 +243,19 @@ class AVP_Automation:
             if include_file not in avp_includes:
                 avp_includes.append(include_file)
             # define Processor
-            def_proc = \
-                f"avp::{proc_name} {proc_label}({gen_cpp_params(cfg, default_cfg)}, \"{proc_label}\");\n"
+            # special case for TemplateProcessor on Windows platform
+            func_ptr = ""
+            if sys.platform.startswith('win') and proc_name == 'TemplateProcessor':
+                func_ptr = cfg['args']['func_ptr'].rstrip()
+                cfg['args']['func_ptr'] = None
+                def_proc = \
+                    f"avp::{proc_name} {proc_label}({gen_cpp_params(cfg, default_cfg)}, \"{proc_label}\");\n" + \
+                    f"{proc_label}.bindFunc({func_ptr[2:-1]});\n"
+                cfg['args']['func_ptr'] = func_ptr
+            else:
+                def_proc = \
+                    f"avp::{proc_name} {proc_label}({gen_cpp_params(cfg, default_cfg)}, \"{proc_label}\");\n"
+
             processor_definition += def_proc
             # assigning pipe_id
             out_pipes = []
@@ -673,7 +684,7 @@ if __name__ == "__main__":
     pose_yaml = "avp_example/pose_estimation.yaml"
     hand_yaml = "avp_example/multi_hand_tracking.yaml"
     hand_no_loop_yaml = "avp_example/multi_hand_tracking_no_loopback.yaml"
-    avp_task = AVP_Automation(pose_yaml, default_configs)
+    avp_task = AVP_Automation(hand_yaml, default_configs)
     # avp_task.visualize(show_streams=False)
     avp_task.code_gen(loop_len=200)
     # avp_task.cmake_cpp()
@@ -681,11 +692,11 @@ if __name__ == "__main__":
     # avp_task.cpp_run()
     # avp_task.profile()
     
-    threads = avp_task.multi_threading(2)
-    # avp_task.visualize(show_streams=True, threads=threads, show_timing=True, format='png')
-    avp_task.code_gen(loop_len=200, threads=threads)
-    avp_task.cmake_cpp()
-    avp_task.cpp_build()
-    avp_task.cpp_run()
-    print(threads)
+    # threads = avp_task.multi_threading(2)
+    # # avp_task.visualize(show_streams=True, threads=threads, show_timing=True, format='png')
+    # avp_task.code_gen(loop_len=200, threads=threads)
+    # avp_task.cmake_cpp()
+    # avp_task.cpp_build()
+    # avp_task.cpp_run()
+    # print(threads)
     print("pass")
