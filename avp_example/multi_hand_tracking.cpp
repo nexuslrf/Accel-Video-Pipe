@@ -45,7 +45,7 @@ int main()
     avp::RotateCropResize handRotateCropResize(dstHeight, dstWidth, 1, 1, 
                     handUpId, handDownId, hand_shift_y, hand_shift_x, hand_box_scale);
     
-    avp::TemplateProcessor multiplexer(2, 1, NULL, avp::AVP_MAT);
+    avp::TemplateProcessor multiplexer(2, 1, NULL, true, avp::AVP_MAT);
     multiplexer.bindFunc([&multiplexer](avp::DataList &in_data_list, avp::DataList &out_data_list) {
                    if (multiplexer.timeTick % 5 == 0 || in_data_list[0].empty())
                    {
@@ -54,9 +54,8 @@ int main()
                        out_data_list[0].loadData(frame);
                    }
                });
-    multiplexer.skipEmptyCheck = true;
 
-    avp::TemplateProcessor streamMerger(5, 4, NULL, avp::AVP_MAT);
+    avp::TemplateProcessor streamMerger(5, 4, NULL, true, avp::AVP_MAT);
     auto merger_func = [&](avp::DataList &in_data_list, avp::DataList &out_data_list) {
         if (!streamMerger.checkEmpty(0, 2))
         {
@@ -71,19 +70,17 @@ int main()
         }
     };
     streamMerger.bindFunc(merger_func);
-    streamMerger.skipEmptyCheck = true;
-
     avp::TimeUpdater timeUpdate(2);
 
     avp::Stream pipe[30];
-    videoSrc.bindStream(&pipe[0], avp::AVP_STREAM_OUT);
+    videoSrc.bindStream({}, {&pipe[0]});
     crop.bindStream({&pipe[0]}, {&pipe[1], &pipe[14]});
     multiplexer.bindStream({&pipe[25], &pipe[1]}, {&pipe[23]});
     normalization.bindStream({&pipe[23]}, {&pipe[2]});
     matToTensor.bindStream({&pipe[2]}, {&pipe[3]});
     PalmCNN.bindStream({&pipe[3]}, {&pipe[4], &pipe[5]});
     decodeBoxes.bindStream({&pipe[4]}, {&pipe[6]});
-    NMS.bindStream({&pipe[5], &pipe[6]}, {&pipe[7], &pipe[8]});
+    NMS.bindStream({&pipe[6], &pipe[5]}, {&pipe[7], &pipe[8]});
     // drawDet.bindStream({&pipe[7], &pipe[1]}, {&pipe[10]});
     // imshow.bindStream(&pipe[10], avp::AVP_STREAM_IN);
     streamMerger.bindStream({&pipe[7], &pipe[8], &pipe[25], &pipe[24], &pipe[14]}, 
@@ -95,7 +92,7 @@ int main()
     drawKeypoint.bindStream({&pipe[19], &pipe[14]}, {&pipe[20]});
     keypointToBndBox.bindStream({&pipe[19]}, {&pipe[22]});
     timeUpdate.bindStream({&pipe[19], &pipe[22]}, {&pipe[24], &pipe[25]});
-    imshow_kp.bindStream(&pipe[20], avp::AVP_STREAM_IN);
+    imshow_kp.bindStream({&pipe[20]}, {});
 
     avp::StreamPacket nullData(avp::AVP_TENSOR, 0);
     pipe[24].loadPacket(nullData);

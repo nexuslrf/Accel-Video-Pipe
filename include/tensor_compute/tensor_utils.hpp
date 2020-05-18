@@ -12,7 +12,7 @@ namespace avp {
 class DataLayoutConvertion: public PipeProcessor {
 public:
     DataLayout inLayout, outLayout;
-    DataLayoutConvertion(DataLayout in_layout=NHWC, DataLayout out_layout=NCHW, std::string pp_name=""): 
+    DataLayoutConvertion(DataLayout in_layout=NHWC, DataLayout out_layout=NCHW, std::string pp_name="DataLayoutConvertion"): 
         PipeProcessor(1,1, AVP_TENSOR, pp_name, STREAM_PROC),
         inLayout(in_layout), outLayout(out_layout)
     {}

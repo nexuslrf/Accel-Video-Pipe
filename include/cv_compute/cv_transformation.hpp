@@ -12,7 +12,8 @@ public:
     int dstHeight, dstWidth;
     bool flip, returnCrop;
     cv::Rect ROI;
-    CenterCropResize(int src_height, int src_width, int dst_height, int dst_width, bool flip_img=false, bool return_crop=false, string pp_name=""): 
+    CenterCropResize(int src_height, int src_width, int dst_height, int dst_width, 
+        bool flip_img=false, bool return_crop=false, string pp_name="CenterCropResize"): 
         PipeProcessor(1, 1, AVP_MAT, pp_name, STREAM_PROC), srcHeight(src_height), srcWidth(src_width), 
         dstHeight(dst_height), dstWidth(dst_width), flip(flip_img), returnCrop(return_crop)
     {
@@ -45,9 +46,10 @@ public:
         {
             Mat tmp_mat, crop_mat;
             crop_mat = in_mat(ROI);
-            cv::resize(crop_mat, tmp_mat, {dstWidth, dstHeight}, 0, 0, cv::INTER_LINEAR);
             if(flip)
-                cv::flip(tmp_mat, tmp_mat, +1);
+                cv::flip(crop_mat, crop_mat, +1);
+            cv::resize(crop_mat, tmp_mat, {dstWidth, dstHeight}, 0, 0, cv::INTER_LINEAR);
+            
             out_data_list[0].loadData(tmp_mat);
             if(returnCrop)
                 out_data_list[1].loadData(crop_mat);
@@ -58,8 +60,8 @@ public:
 class ImgNormalization: public PipeProcessor {
     cv::Scalar mean, stdev;
 public:
-    ImgNormalization(cv::Scalar mean_var, cv::Scalar stdev_var, std::string pp_name=""): PipeProcessor(1,1, AVP_MAT, pp_name, STREAM_PROC),
-        mean(mean_var), stdev(stdev_var)
+    ImgNormalization(cv::Scalar mean_var, cv::Scalar stdev_var, std::string pp_name="ImgNormalization"): 
+        PipeProcessor(1,1, AVP_MAT, pp_name, STREAM_PROC), mean(mean_var), stdev(stdev_var)
     {} 
     ImgNormalization(float mean_var=0.5, float stdev_var=0.5, std::string pp_name=""): PipeProcessor(1,1, AVP_MAT, pp_name, STREAM_PROC)
     {
@@ -105,8 +107,8 @@ public:
     bool keepSquare, returnCrop;
     Tensor sizeScale;
     RotateCropResize(int dst_h, int dst_w, float h_scale, float w_scale, int obj_up_id=2, int obj_down_id=0, float shift_y=0.5, float shift_x=0.0,
-            float box_scale=2.6, bool keep_square=true, bool ret_crop=true, PackType out_type=AVP_MAT, string pp_name=""): 
-        PipeProcessor(3,3,out_type,pp_name,STREAM_PROC), dstHeight(dst_h), dstWidth(dst_w), objUpIdx(obj_up_id), objDownIdx(obj_down_id), 
+            float box_scale=2.6, bool keep_square=true, bool ret_crop=true, string pp_name="RotateCropResize"): 
+        PipeProcessor(3,3, AVP_MAT ,pp_name,STREAM_PROC), dstHeight(dst_h), dstWidth(dst_w), objUpIdx(obj_up_id), objDownIdx(obj_down_id), 
         shiftY(shift_y), shiftX(shift_x), boxScale(box_scale), keepSquare(keep_square), returnCrop(ret_crop)
     {
         sizeScale = torch::empty({1,4}, torch::kF32);
@@ -216,7 +218,7 @@ class RotateBack: public PipeProcessor {
     int numKeypoints;
     float skipThrs;
 public:
-    RotateBack(int model_h=256, int model_w=256, int num_keypts=21, float skip_thrs=0.8, string pp_name=""): PipeProcessor(5, 1, AVP_TENSOR, pp_name, STREAM_PROC),
+    RotateBack(int model_h=256, int model_w=256, int num_keypts=21, float skip_thrs=0.8, string pp_name="RotateBack"): PipeProcessor(5, 1, AVP_TENSOR, pp_name, STREAM_PROC),
         modelHeight(model_h), modelWidth(model_w), numKeypoints(num_keypts), skipThrs(skip_thrs)
     {}
     /*

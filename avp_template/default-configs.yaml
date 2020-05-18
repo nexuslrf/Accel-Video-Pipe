@@ -1,0 +1,357 @@
+# This file record all default args/specs for avp::PipeProcessors
+# Use YAML language
+
+# --- cv_display.hpp ---
+- PipeProcessor: StreamShowProcessor
+  namespace: avp
+  includeFile: cv_compute/cv_display.hpp
+  label: AVP::REQUIRED
+  args:
+    wait_time: 1
+    show_name: ""
+  mainThread: true
+  inStreams:
+  - label: matImage
+  outStreams: []
+
+# --- cv_rendering.hpp ---
+- PipeProcessor: DrawLandMarks
+  namespace: avp
+  includeFile: cv_compute/cv_rendering.hpp
+  label: AVP::REQUIRED
+  args:
+    h_scale: 1.0
+    w_scale: 1.0
+    h_offset: 0
+    w_offset: 0
+    prob_thres: 0
+    r: 2
+    c: [0, 0, 255]
+  inStreams: 
+  - label: landMarks
+  - label: matImage
+  - label: pointProb
+    annotation: optional
+  outStreams:
+  - label: matImage
+
+- PipeProcessor: DrawDetBoxes
+  namespace: avp
+  includeFile: cv_compute/cv_rendering.hpp
+  label: AVP::REQUIRED
+  args:
+    h_scale: 1.0
+    w_scale: 1.0
+    h_offset: 0
+    w_offset: 0
+    prob_thres: 0
+    c: [0, 255, 0]
+  inStreams: 
+  - label: boundingBoxes
+  - label: matImage
+  - label: pointProb
+    annotation: optional
+  outStreams:
+  - label: matImage
+
+# --- cv_stream_src.hpp ---
+- PipeProcessor: VideoFileProcessor
+  namespace: avp
+  includeFile: cv_compute/cv_stream_src.hpp
+  label: AVP::REQUIRED
+  args:
+    file_path: AVP::REQUIRED
+  inStreams: []
+  outStreams:
+  - label: matImage
+
+- PipeProcessor: WebCamProcessor
+  namespace: avp
+  includeFile: cv_compute/cv_stream_src.hpp
+  label: AVP::REQUIRED
+  args:
+    cam_id: 0 
+  inStreams: []
+  outStreams:
+  - label: matImage
+
+# --- cv_transformation.hpp ---
+- PipeProcessor: CenterCropResize
+  namespace: avp
+  includeFile: cv_compute/cv_transformation.hpp
+  label: AVP::REQUIRED
+  args:
+    src_height: AVP::REQUIRED
+    src_width: AVP::REQUIRED 
+    dst_height: AVP::REQUIRED
+    dst_width: AVP::REQUIRED
+    flip_img: false
+    return_crop: false
+  inStreams:
+  - label: matImage
+  outStreams:
+  - label: resizedMatImage
+  - label: croppedMatImage
+    annotation: optional
+
+- PipeProcessor: ImgNormalization
+  namespace: avp
+  includeFile: cv_compute/cv_transformation.hpp
+  label: AVP::REQUIRED
+  args:
+    mean_var: 0.5
+    stdev_var: 0.5
+  inStreams:
+  - label: matImage
+  outStreams:
+  - label: normalizedMatImage
+
+- PipeProcessor: RotateCropResize
+  namespace: avp
+  includeFile: cv_compute/cv_transformation.hpp
+  label: AVP::REQUIRED
+  args:
+    dst_h:
+    dst_w:
+    h_scale:
+    w_scale:
+    obj_up_id: 2
+    obj_down_id: 0
+    shift_y: 0.5
+    shift_x: 0
+    box_scale: 2.6
+    keep_square: true
+    ret_crop: true
+  inStreams:
+  - label: detBoxes
+  - label: detKeypoints
+  - label: frameMat
+  outStreams:
+  - label: cropObjs
+  - label: affineMats
+  - label: rotCenters
+
+- PipeProcessor: RotateBack
+  namespace: avp
+  includeFile: cv_compute/cv_transformation.hpp
+  label: AVP::REQUIRED
+  args:
+    model_h: 256
+    model_w: 256
+    num_keypts: 21
+    skip_thrs: 0.8
+  inStreams:
+  - label: keypoints
+  - label: scores
+  - label: cropObjs
+  - label: affineMat
+  - label: rotCenters
+  outStreams:
+  - label: rotated_keypoints
+
+# --- libtorch.hpp ---
+- PipeProcessor: LibTorchProcessor
+  namespace: avp
+  includeFile: tensor_compute/libtorch.hpp
+  label: AVP::REQUIRED
+  args:
+    dims: AVP::REQUIRED
+    data_layout: \`avp::NCHW`
+    model_path: AVP::REQUIRED
+    num_output: 1
+  inStreams:
+  - label: inTensor[0]
+  - label: others
+    annotation: optional
+  outStreams:
+  - label: outTensor[0]
+  - label: others
+    annotation: optional
+
+# --- openvino.hpp ---
+- PipeProcessor: OpenVinoProcessor
+  namespace: avp
+  includeFile: tensor_compute/openvino.hpp
+  label: AVP::REQUIRED
+  args:
+    dims: AVP::REQUIRED
+    data_layout: \`avp::NCHW`
+    model_path: AVP::REQUIRED
+    num_output: 1
+  inStreams:
+  - label: inTensor[0]
+  - label: others
+    annotation: optional
+  outStreams:
+  - label: outTensor[0]
+  - label: others
+    annotation: optional
+
+# --- onnx_runtime.hpp ---
+- PipeProcessor: ONNXRuntimeProcessor
+  namespace: avp
+  includeFile: tensor_compute/onnx_runtime.hpp
+  label: AVP::REQUIRED
+  args:
+    dims: AVP::REQUIRED
+    data_layout: \`avp::NCHW`
+    model_path: AVP::REQUIRED
+    num_output: 1
+  inStreams:
+  - label: inTensor[0]
+  - label: others
+    annotation: optional
+  outStreams:
+  - label: outTensor[0]
+  - label: others
+    annotation: optional
+
+# --- tensorrt.hpp ---
+- PipeProcessor: TensorRTProcessor
+  namespace: avp
+  includeFile: tensor_compute/tensorrt.hpp
+  label: AVP::REQUIRED
+  args:
+    dims: AVP::REQUIRED
+    data_layout: \`avp::NCHW`
+    model_path: AVP::REQUIRED
+    workspace_size_MiB: 2048
+    num_output: 1
+  inStreams:
+  - label: inTensor[0]
+  - label: others
+    annotation: optional
+  outStreams:
+  - label: outTensor[0]
+  - label: others
+    annotation: optional
+
+# --- det_postprocess.hpp ---
+- PipeProcessor: LandMarkMaxPred
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
+  label: AVP::REQUIRED
+  args:
+    output_prob: true
+  inStreams:
+  - label: heatmapTensor
+  outStreams:
+  - label: predTensor
+  - label: predProbTensor
+    annotation: optional
+
+- PipeProcessor: PredToKeypoint
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp 
+  label: AVP::REQUIRED
+  args:
+    sigma_val: 2
+  inStreams:
+  - label: heatmapTensor
+  - label: predTensor
+  outStreams:
+  - label: keypointsTensor
+
+- PipeProcessor: DecodeDetBoxes
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
+  label: AVP::REQUIRED
+  args:
+    num_anchors: AVP::REQUIRED
+    anchor_file: AVP::REQUIRED
+    dst_h: AVP::REQUIRED
+    dst_w: AVP::REQUIRED
+    num_keypts: AVP::REQUIRED
+  inStreams:
+  - label: rawBoxesTensor
+  outStreams:
+  - label: detBoxesTensor
+
+- PipeProcessor: NonMaxSuppression
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
+  label: AVP::REQUIRED
+  args:
+    num_keypts:
+    clip_t: 100.0
+    score_t: 0.8
+    suppression_t: 0.3
+  inStreams:
+  - label: detScoresTensor
+  - label: detBoxesTensor
+  outStreams:
+  - label: outDetsTensor
+  - label: outLandMarksTensor
+
+- PipeProcessor:
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
+  label: AVP::REQUIRED
+  args:
+  inStreams:
+  outStreams:
+
+- PipeProcessor: LandMarkToDet
+  namespace: avp
+  includeFile: tensor_compute/det_postprocess.hpp
+  label: AVP::REQUIRED
+  args:
+    points_idx: []
+  inStreams:
+  - label: keypointsTensor
+  outStreams:
+  - label: outBoxesTensor
+
+# --- tensor_utils.hpp ---
+- PipeProcessor: DataLayoutConvertion
+  namespace: avp
+  includeFile: tensor_compute/tensor_utils.hpp
+  label: AVP::REQUIRED
+  args:
+    in_layout: \`avp::NHWC`
+    out_layout: \`avp::NCHW`
+  inStreams:
+  - label: NHWC_Tensor
+  outStreams:
+  - label: NCHW_Tensor
+
+# --- util_compute.hpp
+- PipeProcessor: TemplateProcessor
+  namespace: avp
+  includeFile: avpipe/util_compute.hpp
+  label: AVP::REQUIRED
+  args:
+    num_input: AVP::REQUIRED 
+    num_output: AVP::REQUIRED
+    func_ptr: NULL
+    skip_empty_check: false
+    out_data_type: \`avp::AVP_TENSOR`
+  inStreams:
+  - label: in[0]
+    annotation: optional
+  outStreams:
+  - label: out[0]
+    annotation: optional
+
+- PipeProcessor: TimeUpdater
+  namespace: avp
+  includeFile: avpipe/util_compute.hpp
+  label: AVP::REQUIRED
+  args:
+    num_stream: AVP::REQUIRED
+    time_step: 1
+    out_data_type: \`avp::AVP_TENSOR`
+  inStreams:
+  - label: in[0]
+    annotation: optional
+  outStreams:
+  - label: out[0]
+    annotation: optional
+
+# - PipeProcessor:  
+#   namespace: avp
+#   includeFile:
+#   label: AVP::REQUIRED
+#   args:
+#   inStreams:
+#   outStreams:

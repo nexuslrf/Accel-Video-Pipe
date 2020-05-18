@@ -8,7 +8,7 @@ namespace avp {
 class LandMarkMaxPred: public PipeProcessor {
 public:
     bool outputProb;
-    LandMarkMaxPred(bool output_prob = true, std::string pp_name=""): 
+    LandMarkMaxPred(bool output_prob = true, std::string pp_name="LandMarkMaxPred"): 
         PipeProcessor(1, 2, AVP_TENSOR, pp_name, STREAM_PROC), outputProb(output_prob)
     {
         if(!outputProb)
@@ -24,7 +24,7 @@ public:
         // preds: [N, C, 2]
         auto preds = torch::empty({bs, numJoints, 2}, torch::kI32);
         preds.slice(2,0,1) = idx % heatmaps.size(3);
-        preds.slice(2,1,2) = idx / heatmaps.size(3);
+        preds.slice(2,1,2) = idx.floor_divide(heatmaps.size(3)); // idx / heatmaps.size(3);
         auto predMusk = (maxvals > 0.0);
         preds.mul_(predMusk);
         // probs.copy_(maxvals);
@@ -40,27 +40,28 @@ public:
 class PredToKeypoint: public PipeProcessor {
 public:
     int sigma;
-    PredToKeypoint(std::string pp_name=""): PipeProcessor(2, 1, AVP_TENSOR, pp_name, STREAM_PROC)
+    PredToKeypoint(int sigma_val=2, std::string pp_name="PredToKeypoint"): PipeProcessor(2, 1, AVP_TENSOR, pp_name, STREAM_PROC)
     {
-        sigma = 2;
+        sigma = sigma_val;
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         auto heatmaps = in_data_list[0].tensor();
         int bs = heatmaps.size(0), numJoints = heatmaps.size(1);
-        auto map_a = in_data_list[0].tensor().accessor<float, 4>();
+        int map_h = heatmaps.size(2), map_w = heatmaps.size(3);
+        auto map_a = heatmaps.accessor<float, 4>();
         auto xy_a = in_data_list[1].tensor().accessor<int, 3>();
         auto keyPoints = torch::empty({bs, numJoints, 2}, torch::kF32);
         int x,y;
         float d1_x, d1_y, d2;
         d2 = sigma * sigma / 4;
-        for(int i=0; i<(int)heatmaps.size(0); i++)
+        for(int i=0; i<bs; i++)
         {
-            for(int j=0; j<(int)heatmaps.size(1); j++)
+            for(int j=0; j<numJoints; j++)
             {
                 x = xy_a[i][j][0];
                 y = xy_a[i][j][1];
-                if(x>0 && y>0)
+                if(x>0 && y>0 && x<map_w-1 && y<map_h-1)
                 {
                     d1_x = std::log(
                         (map_a[i][j][y][x+1] * map_a[i][j][y][x+1] * map_a[i][j][y+1][x+1] * map_a[i][j][y-1][x+1]) / 
@@ -75,6 +76,12 @@ public:
                     keyPoints[i][j][0] = x + d1_x;
                     keyPoints[i][j][1] = y + d1_y;
                 }
+                else
+                {
+                    keyPoints[i][j][0] = x;
+                    keyPoints[i][j][1] = y;
+                }
+                
             }
         }
         out_data_list[0].loadData(keyPoints);
@@ -93,7 +100,7 @@ public:
     int numKeypoints;
     int outDims;
     torch::Tensor anchors;
-    DecodeDetBoxes(int num_anchors, string anchor_file, int dst_h, int dst_w, int num_keypts, string pp_name=""): 
+    DecodeDetBoxes(int num_anchors, string anchor_file, int dst_h, int dst_w, int num_keypts, string pp_name="DecodeDetBoxes"): 
         PipeProcessor(1, 1, AVP_TENSOR, pp_name, STREAM_PROC), numAnchors(num_anchors), 
         dstHeight(dst_h), dstWidth(dst_w), numKeypoints(num_keypts)
     {
@@ -205,7 +212,8 @@ class NonMaxSuppression: public PipeProcessor {
 public:
     float scoreClipThrs, minScoreThrs, minSuppressionThrs;
     int numKeypoints, scoreDim;
-    NonMaxSuppression(int num_keypts, float clip_t=100.0, float score_t=0.8, float suppression_t=0.3, string pp_name=""): 
+    NonMaxSuppression(int num_keypts, float clip_t=100.0, float score_t=0.8, 
+        float suppression_t=0.3, string pp_name="NonMaxSuppression"): 
         PipeProcessor(2, 2, AVP_TENSOR, pp_name, STREAM_PROC), scoreClipThrs(clip_t), minScoreThrs(score_t), 
         minSuppressionThrs(suppression_t), numKeypoints(num_keypts) //int dst_h, int dst_w, int obj_up_id, int obj_down_id,  dstHeight(dst_h), dstWidth(dst_w), objUpId(obj_up_id), objDownId(obj_down_id)
     {
@@ -213,8 +221,9 @@ public:
     }
     void run(DataList& in_data_list, DataList& out_data_list)
     {
-        auto detScores = in_data_list[0].tensor().clamp(-scoreClipThrs, scoreClipThrs).sigmoid().squeeze(-1);;
-        auto detBoxes = in_data_list[1].tensor();
+        // std::cout<<"NMS SUM: "<<in_data_list[1].tensor().sum()<<"\n";
+        auto detBoxes = in_data_list[0].tensor();
+        auto detScores = in_data_list[1].tensor().clamp(-scoreClipThrs, scoreClipThrs).sigmoid().squeeze(-1);
         auto mask = detScores >= minScoreThrs;
         int bs = 1; // detBoxes.size(0);
         /* Attention BS must be one!!!
@@ -284,8 +293,8 @@ class LandMarkToDet: public PipeProcessor {
     Tensor selectedPointIdx;
 
 public:
-    LandMarkToDet(std::vector<int> points_idx={}, string pp_name=""): PipeProcessor(1,1,AVP_TENSOR,pp_name,STREAM_PROC),
-        selectedPointIdx_vec(points_idx)
+    LandMarkToDet(std::vector<int> points_idx={}, string pp_name="LandMarkToDet"): 
+        PipeProcessor(1,1,AVP_TENSOR,pp_name,STREAM_PROC), selectedPointIdx_vec(points_idx)
     {
         selectedPointIdx = torch::from_blob(selectedPointIdx_vec.data(), {(int)selectedPointIdx_vec.size()}, torch::kI32).to(torch::kI64);
     }

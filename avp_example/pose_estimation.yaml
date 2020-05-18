@@ -1,0 +1,85 @@
+- PipeProcessor: VideoFileProcessor
+  namespace: avp # default namespace is avp
+  label: videoSrc
+  timing_info: 2.06
+  args:
+    file_path: C:\\Users\\Ruofan\\Programming\\Accel-Video-Pipe\\models\\kunkun_nmsl.mp4
+
+- PipeProcessor: CenterCropResize
+  label: crop
+  timing_info: 0.16
+  args:
+    src_height: \`videoSrc.rawHeight`
+    src_width: \`videoSrc.rawWidth`
+    dst_height: 256
+    dst_width: 192
+  binding:
+  - label: videoSrc # default idx is 0
+
+- PipeProcessor: ImgNormalization
+  label: normalization
+  timing_info: 0.62
+  args:
+    mean_var: [0.485, 0.456, 0.406]
+    stdev_var: [0.229, 0.224, 0.225]
+  binding:
+  - label: crop
+
+- PipeProcessor: DataLayoutConvertion
+  label: matToTensor
+  timing_info: 0.32
+  binding:
+  - label: normalization
+
+- PipeProcessor: OpenVinoProcessor
+  label: CNN
+  timing_info: 80.38
+  args:
+    dims: [1,3,256,192]
+    data_layout: \`avp::NCHW`
+    model_path: C:\\Users\\Ruofan\\Programming\\Accel-Video-Pipe\\models\\pose_resnet_34_256x192
+  binding:
+  - label: matToTensor
+
+- PipeProcessor: LibTorchProcessor
+  label: filter
+  timing_info: 2.84
+  args:
+    dims: [1,17,64,48]
+    model_path: C:\\Users\\Ruofan\\Programming\\Accel-Video-Pipe\\models\\gaussian_modulation.zip
+  binding:
+  - label: CNN
+
+- PipeProcessor: LandMarkMaxPred
+  label: maxPred
+  timing_info: 0.18
+  binding:
+  - label: CNN
+
+- PipeProcessor: PredToKeypoint
+  label: getKeypoint
+  timing_info: 0.02
+  binding:
+  - label: filter
+  - label: maxPred
+
+- PipeProcessor: DrawLandMarks
+  label: draw
+  timing_info: 0.04
+  args:
+    h_scale: 4
+    w_scale: 4
+    prob_thres: 0.3
+  binding:
+  - label: getKeypoint
+  - label: crop
+  - label: maxPred
+    idx: 1
+
+- PipeProcessor: StreamShowProcessor
+  label: imshow
+  timing_info: 23.28
+  args:
+    wait_time: 1
+  binding:
+  - label: draw
