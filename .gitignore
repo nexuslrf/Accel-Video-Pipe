@@ -6,3 +6,5 @@ models
 dll_temp
 out
 test_cpp
+_output
+__pycache__

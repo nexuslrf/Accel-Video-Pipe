@@ -1,5 +1,6 @@
 
 import os
+import sys
 from textwrap import indent
 from graphviz import Digraph
 from utils import read_yaml, print_err, dict_has, gen_cpp_params
@@ -421,14 +422,20 @@ class AVP_Automation:
         fh = open(os.path.join(self.out_path, "CMakeLists.txt"), 'w')
         fh.write(cmakelists)
 
-    def cpp_build(self, script_file="avp_template/avp_build.sh"):
-        script_out = os.popen(f"bash {script_file} {self.out_path} {self.task_name}").read()
+    def cpp_build(self, script_file=".\\avp_template\\avp_build.bat"):
+        if sys.platform.startswith('win'):
+            script_out = os.popen(f"{script_file} {self.out_path} {self.task_name}").read()
+        else:
+            script_out = os.popen(f"bash {script_file} {self.out_path} {self.task_name}").read()
         print("--- CPP Build Output ---")
         print(script_out)
         return script_out
 
-    def cpp_run(self, script_file="avp_template/avp_run.sh"):
-        script_out = os.popen(f"bash {script_file} {self.out_path} {self.task_name}").read()
+    def cpp_run(self, script_file=".\\avp_template\\avp_run.bat"):
+        if sys.platform.startswith('win'):
+            script_out = os.popen(f"{script_file} {self.out_path} {self.task_name}").read()
+        else:
+            script_out = os.popen(f"bash {script_file} {self.out_path} {self.task_name}").read()
         print("--- CPP Run Output ---")
         print(script_out)
         return script_out
@@ -668,16 +675,17 @@ if __name__ == "__main__":
     hand_no_loop_yaml = "avp_example/multi_hand_tracking_no_loopback.yaml"
     avp_task = AVP_Automation(pose_yaml, default_configs)
     # avp_task.visualize(show_streams=False)
-    # avp_task.code_gen(loop_len=200)
-    # avp_task.cmake_cpp()
-    # avp_task.cpp_build()
-    # avp_task.profile()
-    
-    threads = avp_task.multi_threading(4)
-    avp_task.visualize(show_streams=True, threads=threads, show_timing=True, format='png')
-    # avp_task.code_gen(loop_len=200, threads=threads)
+    avp_task.code_gen(loop_len=200)
     # avp_task.cmake_cpp()
     # avp_task.cpp_build()
     # avp_task.cpp_run()
-    # print(threads)
+    # avp_task.profile()
+    
+    threads = avp_task.multi_threading(2)
+    # avp_task.visualize(show_streams=True, threads=threads, show_timing=True, format='png')
+    avp_task.code_gen(loop_len=200, threads=threads)
+    avp_task.cmake_cpp()
+    avp_task.cpp_build()
+    avp_task.cpp_run()
+    print(threads)
     print("pass")
