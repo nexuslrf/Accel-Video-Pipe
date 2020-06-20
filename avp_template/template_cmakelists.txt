@@ -5,7 +5,7 @@ set(CMAKE_PREFIX_PATH "/Users/liangruofan1/Program/CNN_Deployment/libtorch")
 
 project( avp_template_project )
 
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
 
 set(OpenCV_DIR "/opt/intel/openvino_2020.1.023/opencv/cmake")
 set(InferenceEngine_DIR "/opt/intel/openvino_2020.1.023/deployment_tools/inference_engine/share")
@@ -16,6 +16,7 @@ set(ONNXRT_INLCUDE "${ONNXRT_ROOT}/include")
 find_package( InferenceEngine REQUIRED)
 find_package( OpenCV 4.2 REQUIRED )
 find_package( Torch 1.5 REQUIRED)
+find_package( glog 0.4.0 REQUIRED)
 
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 include_directories( ${ONNXRT_INLCUDE})
@@ -39,4 +40,5 @@ target_link_libraries( avp_template_exec ${TORCH_LIBRARIES})
 target_link_libraries( avp_template_exec ${OpenCV_LIBS} )
 target_link_libraries( avp_template_exec ${InferenceEngine_LIBRARIES})
 target_link_libraries( avp_template_exec ${ONNXRT_LIB})
+target_link_libraries( avp_template_exec glog::glog)
 # --- AVP::EXEC::END ---

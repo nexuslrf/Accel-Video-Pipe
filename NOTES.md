@@ -66,3 +66,11 @@ D-->E[Infer#2: Execute, copyOutputToHost]
 
 ```
 
+| | Has (recent)c++ prebuilts | C++ buildable | Handle PreBuilt Models | HW Acceleration |
+| ------------------------- | ------------- | ---------------------- | --------------- | ---- |
+| MXNET                     | NO            | Not So Far             | Yes | Fastest Cuda impl |
+| TensorFlow | NO | Not since change to bazel | The pgm is the model | Slower |
+| CNTK |  |  |  |  |
+| caffe2 | Yes | Yes | Yes lots of them | yes |
+| libtorch | Yes | Yes | Only TorchScript | Yes |
+| OpenVino | Yes | Yes | Yes lots | Yes, Intel only |

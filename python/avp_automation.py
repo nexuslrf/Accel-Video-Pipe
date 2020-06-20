@@ -206,7 +206,7 @@ class AVP_Automation:
                     
         g.view("AVP_"+self.task_name, self.out_path)
 
-    def code_gen(self, additional_includes=[], loop_len=20, profile=False, threads=[], buffer_capacity=5):
+    def code_gen(self, additional_includes=[], loop_len=20, profile=False, threads=[], buffer_capacity=5, timing=False):
         cpp_file_name = self.task_name + '.cpp'
         self.cpp_file_name = os.path.join(self.out_path, cpp_file_name)
         if len(threads) == 0:
@@ -353,7 +353,7 @@ class AVP_Automation:
                     proc_list += "\n    "
             proc_list = proc_list.rstrip()[:-1] if proc_list != "" else proc_list
             if ti+1 == len(threads):
-                if profile:
+                if profile or timing:
                     running_thread += f"avp::pipeThreadProcessTiming(avp::ProcList({l_curly}{proc_list}{r_curly}), {loop_len});\n" 
                 else:
                     running_thread += f"avp::pipeThreadProcess(avp::ProcList({l_curly}{proc_list}{r_curly}), {loop_len});\n" 
@@ -396,7 +396,7 @@ class AVP_Automation:
         cpp_file.close()
         return
 
-    def cmake_cpp(self, template_cmakelists = 'avp_template/template_cmakelists.txt', definitions=["_LOG_INFO"]):
+    def cmake_cpp(self, template_cmakelists = 'avp_template/template_cmakelists.txt', definitions=[]):
         cmakelists = open(template_cmakelists, 'r').read()
 
         # find different chunks
@@ -552,12 +552,12 @@ class AVP_Automation:
                     candidate = None
                     for dep in dep_list:
                         if dep[1] == 'predecessors':
-                            dep_suc = get_dependency(label, 'successors')
+                            dep_suc = get_dependency(dep[0], 'successors')
                             condition_set = set(dep_suc).intersection(set(predecessors))
                             if condition_set.issubset(set(tmp_thread)):
                                 candidate = dep
                         else:
-                            dep_pre = get_dependency(label, 'predecessors')
+                            dep_pre = get_dependency(dep[0], 'predecessors')
                             condition_set = set(dep_pre).intersection(set(successors))
                             if condition_set.issubset(set(tmp_thread)):
                                 candidate = dep
@@ -667,17 +667,19 @@ if __name__ == "__main__":
     pose_yaml = root_dir + "avp_example/pose_estimation.yaml"
     hand_yaml = root_dir + "avp_example/multi_hand_tracking.yaml"
     hand_no_loop_yaml = root_dir + "avp_example/multi_hand_tracking_no_loopback.yaml"
-    avp_task = AVP_Automation(pose_yaml, default_configs)
+    hand_test_yaml = root_dir + "avp_example/multi_hand_tracking_test.yaml"
+    avp_task = AVP_Automation(hand_no_loop_yaml, default_configs)
     # avp_task.visualize(show_streams=False)
-    # avp_task.code_gen(loop_len=200)
-    # avp_task.cmake_cpp()
+    # avp_task.code_gen(loop_len=50, timing=True)
+    # avp_task.cmake_cpp(definitions=['_LOG_INFO'])
     # avp_task.cpp_build()
-    # avp_task.profile()
+    # avp_task.cpp_run()
+    # avp_task.profile(loop_len=200)
     
     threads = avp_task.multi_threading(4)
-    avp_task.visualize(show_streams=True, threads=threads, show_timing=True, format='png')
-    # avp_task.code_gen(loop_len=200, threads=threads)
-    # avp_task.cmake_cpp()
+    avp_task.visualize(show_streams=False, threads=threads, show_timing=True, format='pdf')
+    # avp_task.code_gen(loop_len=50, threads=threads, timing=True)
+    # avp_task.cmake_cpp(definitions=['_LOG_INFO'])
     # avp_task.cpp_build()
     # avp_task.cpp_run()
     # print(threads)
