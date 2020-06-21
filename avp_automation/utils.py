@@ -19,6 +19,11 @@ def read_yaml(yaml_file):
 
     return yaml.load(file_data, Loader=yaml.FullLoader)
 
+def write_yaml(cfg, yaml_file):
+    file = open(yaml_file, 'w')
+    yaml.dump(cfg, file)
+    file.close()
+
 def default_configs_map(default_configs_yaml="../include/default-configs.yaml"):
     configs_list = read_yaml(default_configs_yaml)
     configs_map = dict()
@@ -102,5 +107,7 @@ def get_proc_type(cfg):
     return proc_type
 
 if __name__ == "__main__":
-    configs_map = default_configs_map("avp_template/default-configs.yaml")
-    print(configs_map['DrawDetBoxes']['args']['c'])
+    # configs_map = default_configs_map("avp_template/default-configs.yaml")
+    # print(configs_map['DrawDetBoxes']['args']['c'])
+    configs_list = read_yaml('avp_example/pose_estimation.yaml')
+    print(yaml.dump(configs_list))

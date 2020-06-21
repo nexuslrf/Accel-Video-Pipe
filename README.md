@@ -79,14 +79,17 @@ Optional: (depending on your use case)
 * [ONNXRuntime](https://microsoft.github.io/onnxruntime/)
 * [TensorRT](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html)
 * [glog](https://github.com/google/glog): for AVP log.
+* [graphviz](https://graphviz.org/): for visualization
 
 ### Play the demo
 
 Run the python script:
 
 ```bash
-python avp_automation/run.py --xxx [TODO]
+# run "python avp_automation/run.py -h" to see how to use
+python avp_automation/run.py -f avp_example/pose_estimation.yaml -l POVGBR --loop_len 50
 ```
+Explain: in `-l` option, `POVGBR` defines a sequence of actions which are [**P**rofile, **O**ptimize, **V**isualize, **G**en-code, **B**uild, **R**un].
 
 ## Development Info
 
