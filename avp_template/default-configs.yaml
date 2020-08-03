@@ -178,6 +178,7 @@
     data_layout: \`avp::NCHW`
     model_path: AVP::REQUIRED
     num_output: 1
+    device: CPU
   inStreams:
   - label: inTensor[0]
   - label: others

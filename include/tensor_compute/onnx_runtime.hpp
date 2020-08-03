@@ -29,8 +29,8 @@ public:
 
         sessionOptions.SetIntraOpNumThreads(1);
         sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-        const char* modelPath = model_path.c_str();
-        sessionPtr = new Ort::Session(env, modelPath, sessionOptions);
+        std::wstring modelPath(model_path.begin(), model_path.end());
+        sessionPtr = new Ort::Session(env, modelPath.c_str(), sessionOptions);
         Ort::AllocatorWithDefaultOptions allocator;
         numInputNodes = sessionPtr->GetInputCount();
         

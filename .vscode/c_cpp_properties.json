@@ -5,12 +5,12 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "C:\\Program Files (x86)\\IntelSWTools\\openvino\\opencv\\include",
-                "C:\\Users\\Ruofan\\Programming\\Libraries\\libtorch\\include",
+                "C:\\Users\\shoot\\Programming\\Libraries\\libtorch\\include",
                 "C:\\Program Files (x86)\\IntelSWTools\\openvino\\inference_engine\\include",
-                "C:\\Users\\Ruofan\\Programming\\Libraries\\onnxruntime-win-x64-1.1.2\\include",
-                "C:\\Users\\Ruofan\\Programming\\Accel-Video-Pipe\\include",
-                "C:\\Users\\Ruofan\\Programming\\Libraries\\glog-0.4.0\\src",
-                "C:\\Users\\Ruofan\\Programming\\Libraries\\glog-0.4.0"
+                "C:\\Users\\shoot\\Programming\\Libraries\\onnxruntime-win-x64-1.1.2\\include",
+                "C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\include",
+                "C:\\Users\\shoot\\Programming\\Libraries\\glog-0.4.0\\src",
+                "C:\\Users\\shoot\\Programming\\Libraries\\glog-0.4.0"
             ],
             "defines": [
                 "_DEBUG",

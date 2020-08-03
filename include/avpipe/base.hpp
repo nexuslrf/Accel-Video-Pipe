@@ -17,6 +17,9 @@
 #include <chrono>
 #include <mutex>
 #include <condition_variable>
+#ifdef _LOG_INFO
+#include <glog/logging.h>
+#endif
 
 namespace avp {
 
@@ -32,6 +35,17 @@ enum PackType {
 
 size_t streamCapacity = 5;
 size_t numThreads = 1;
+
+#ifdef _LOG_INFO
+bool log_init_flag = false;
+
+void init_log()
+{
+    google::InitGoogleLogging("AVPipe");
+    FLAGS_minloglevel = 0;
+    FLAGS_logtostderr = 1;
+}
+#endif
 
 class StreamPacket{
 public:
@@ -279,7 +293,15 @@ public:
     PipeProcessor(int num_instreams, int num_outstreams, PackType data_type, std::string pp_name, PPType pp_type): name(pp_name), 
         procType(pp_type), dataType(data_type), numInStreams(num_instreams), numOutStreams(num_outstreams), 
         timeTick(-1), skipEmptyCheck(false), finish(false)
-    {}
+    {
+#ifdef _LOG_INFO
+        if (!log_init_flag)
+        {
+            init_log();
+            log_init_flag = true;
+        }
+#endif
+    }
     void addTick() {
         timeTick = (timeTick + 1) % MAX_TIME_ROUND;
     }
@@ -306,7 +328,8 @@ public:
             {
                 //timeInconsistent = true; // Case checking 2
 #ifdef _LOG_INFO                    
-                std::cerr<<"[WARNING] "<<typeid(*this).name()<<" inconsistent timestamps of inStream packets\n";
+                // std::cerr<<"[WARNING] "<<typeid(*this).name()<<" inconsistent timestamps of inStream packets\n";
+                // LOG(WARNING)<<<<typeid(*this).name()<<" inconsistent timestamps of inStream packets";
 #endif                    
                 exit(1);//return;
             }
@@ -326,7 +349,8 @@ public:
         {
             // @TODO other ways!
 #ifdef _LOG_INFO
-            std::cerr<<"[WARNING] This packet has been computed!\n";
+            // std::cerr<<"[WARNING] This packet has been computed!\n";
+            // LOG(WARNING)<<"This packet has been computed!";
 #endif
             return;
         }
@@ -358,7 +382,8 @@ public:
         if(packetEmpty || pipeFinish) // clean up all inStream packets
         {
 #ifdef _LOG_INFO            
-            std::cerr<<"[WARNING] "<<typeid(*this).name()<<" clean up all inStream packets\n";
+            // std::cerr<<"[WARNING] "<<typeid(*this).name()<<" clean up all inStream packets\n";
+            // LOG(WARNING)<<<typeid(*this).name()<<" clean up all inStream packets";
 #endif            
             for(i=0; i<numInStreams; i++)
             {
@@ -370,8 +395,15 @@ public:
 #ifdef _TIMING
         auto stop1 = std::chrono::high_resolution_clock::now();
 #endif
+#ifdef _LOG_INFO
+        LOG(INFO)<<name<<" start run session.";
+#endif
 
         run(in_data_list, out_data_list);
+
+#ifdef _LOG_INFO
+        LOG(INFO)<<name<<" finish run session.";
+#endif
 
 #ifdef _TIMING
         auto stop2 = std::chrono::high_resolution_clock::now();
@@ -393,7 +425,8 @@ public:
             if(inStreams.size()==numInStreams)
             {
 #ifdef _LOG_INFO
-                std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of inStreams exceeds limit.\n";
+                // std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of inStreams exceeds limit.\n";
+                // LOG(ERROR)<<typeid(*this).name()<<" Number of inStreams exceeds limit.";
 #endif
                 exit(0);
             }
@@ -405,7 +438,8 @@ public:
             if(outStreams.size()==numOutStreams)
             {
 #ifdef _LOG_INFO                
-                std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of outStreams exceeds limit.\n";
+                // std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of outStreams exceeds limit.\n";
+                // LOG(ERROR)<<typeid(*this).name()<<" Number of outStreams exceeds limit";
 #endif                
                 exit(0);
             }
@@ -418,7 +452,8 @@ public:
         if(inStreams.empty()&&outStreams.empty())
         {
 #ifdef _LOG_INFO            
-            std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Streams are empty!\n";
+            // std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Streams are empty!\n";
+            // LOG(ERROR)<<typeid(*this).name()<<" Streams are empty!";
 #endif            
             exit(0);
         }

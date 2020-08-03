@@ -17,7 +17,7 @@ class OpenVinoProcessor: public NNProcessor {
     std::vector<std::string> inputNames, outputNames;
     SizeVector dims;
 public:
-    OpenVinoProcessor(SizeVector input_dims, DataLayout data_layout, std::string model_path, int num_output=1,
+    OpenVinoProcessor(SizeVector input_dims, DataLayout data_layout, std::string model_path, int num_output=1, std::string device="CPU",
         std::string pp_name = "OpenVinoProcessor"): NNProcessor(input_dims, OPENVINO, data_layout, num_output, pp_name), dims(input_dims)  
     {
         std::string model_xml = model_path+".xml";
@@ -27,7 +27,7 @@ public:
         inputNames.push_back(network.getInputsInfo().begin()->first);
         for(auto &pr: network.getOutputsInfo())
             outputNames.push_back(pr.first);
-        executableNN = ie.LoadNetwork(network, "CPU");
+        executableNN = ie.LoadNetwork(network, device);
         inferRequest = executableNN.CreateInferRequest();
         if(batchSize>0)
         {

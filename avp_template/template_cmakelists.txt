@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-set(CMAKE_PREFIX_PATH "C:\\Users\\Ruofan\\Programming\\Libraries\\libtorch")
+set(CMAKE_PREFIX_PATH "C:\\Users\\shoot\\Programming\\Libraries\\libtorch")
 
 project( avp_template_project )
 
@@ -9,9 +9,12 @@ set(CMAKE_BUILD_TYPE "Release")
 
 set(OpenCV_DIR "C:\\Program Files (x86)\\IntelSWTools\\openvino\\opencv\\cmake")
 set(InferenceEngine_DIR "C:\\Program Files (x86)\\IntelSWTools\\openvino\\deployment_tools\\inference_engine\\share")
-set(ONNXRT_ROOT "C:\\Users\\Ruofan\\Programming\\Libraries\\onnxruntime-win-x64-1.1.2")
+set(ONNXRT_ROOT "C:\\Users\\shoot\\Programming\\Libraries\\onnxruntime-win-x64-1.1.2")
 set(ONNXRT_LIB "${ONNXRT_ROOT}\\lib\\onnxruntime.lib")
 set(ONNXRT_INLCUDE "${ONNXRT_ROOT}\\include")
+set(GLOG_DIR "C:\\Users\\shoot\\Programming\\Libraries\\glog-0.4.0")
+set(GLOG_HELPER "${GLOG_DIR}\\src")
+set(GLOB_LIB "${GLOG_DIR}\\Release\\glog.lib")
 
 # flags for windows
 set_property (DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS _CRT_SECURE_NO_WARNINGS)
@@ -27,6 +30,8 @@ find_package( Torch 1.5 REQUIRED)
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 include_directories( ${ONNXRT_INLCUDE})
 include_directories( "../../include")
+include_directories(${GLOG_DIR})
+include_directories(${GLOG_HELPER})
 
 message(STATUS "Pytorch status:")
 message(STATUS "    libraries: ${TORCH_LIBRARIES}")
@@ -46,4 +51,5 @@ target_link_libraries( avp_template_exec ${TORCH_LIBRARIES})
 target_link_libraries( avp_template_exec ${OpenCV_LIBS} )
 target_link_libraries( avp_template_exec ${InferenceEngine_LIBRARIES})
 target_link_libraries( avp_template_exec ${ONNXRT_LIB})
+target_link_libraries( avp_template_exec ${GLOB_LIB})
 # --- AVP::EXEC::END ---

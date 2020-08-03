@@ -9,7 +9,7 @@ if "%src_dir%"=="" (
 
 :: init OpenVINO
 call "\Program Files (x86)\IntelSWTools\openvino\bin\setupvars.bat"
-set "Path=C:\Users\Ruofan\Programming\Libraries\libtorch\lib;C:\Users\Ruofan\Programming\Libraries\onnxruntime-win-x64-1.1.2\lib;C:\Users\Ruofan\Programming\Libraries\glog-0.4.0\Release;%Path%"
+set "Path=C:\Users\shoot\Programming\Libraries\libtorch\lib;C:\Users\shoot\Programming\Libraries\onnxruntime-win-x64-1.1.2\lib;C:\Users\shoot\Programming\Libraries\glog-0.4.0\Release;%Path%"
 
 set PYTHONPATH
 
