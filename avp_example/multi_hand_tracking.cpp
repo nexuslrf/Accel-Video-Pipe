@@ -7,7 +7,7 @@
 
 int main()
 {
-    std::string rootDir = "C:\\Users\\Ruofan\\Programming\\Accel-Video-Pipe\\models\\";
+    std::string rootDir = "C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\";
     std::string anchorFile = rootDir + "anchors.bin";
     std::string palmModel = rootDir + "palm_detection.onnx";
     std::string handModel = rootDir + "blaze_hand.onnx";

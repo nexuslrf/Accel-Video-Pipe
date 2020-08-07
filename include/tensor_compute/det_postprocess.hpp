@@ -110,6 +110,7 @@ public:
     void run(DataList& in_data_list, DataList& out_data_list)
     {
         auto rawBoxesP = in_data_list[0].tensor();
+        // std::cout<<rawBoxesP.sizes()<<"\n";
         auto boxes = torch::empty_like(rawBoxesP);
         auto x_center = rawBoxesP.slice(2,0,1) / dstWidth  * anchors.slice(1,2,3) + anchors.slice(1,0,1);
         auto y_center = rawBoxesP.slice(2,1,2) / dstHeight * anchors.slice(1,3,4) + anchors.slice(1,1,2);
@@ -161,6 +162,7 @@ void weightedNMS(const Tensor &detections, std::vector<Tensor>& outDets, int sco
     while (remaining.size(0)>0)
     {
         auto weightedDet = detections[remaining[0]].to(torch::kCPU, false, true);
+        // std::cout<<"w_det: "<<weightedDet<<"\n";
         auto firstBox = detections[remaining[0]].slice(0,0,4).unsqueeze(0);
         auto otherBoxes = detections.index(remaining).slice(1,0,4);
         // cout<<firstBox.sizes()<<"    "<<otherBoxes.sizes();
@@ -279,6 +281,86 @@ public:
     }
 };
 
+Tensor xywh2xyxy(const Tensor &x)
+{
+    // Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
+    auto y = torch::zeros_like(x);
+    y.slice(1, 0, 0+1) = x.slice(1, 0, 0+1) - x.slice(1, 2, 2+1) / 2;  // top left x
+    y.slice(1, 1, 1+1) = x.slice(1, 1, 1+1) - x.slice(1, 3, 3+1) / 2;  // top left y
+    y.slice(1, 2, 2+1) = x.slice(1, 0, 0+1) + x.slice(1, 2, 2+1) / 2;  // bottom right x
+    y.slice(1, 3, 3+1) = x.slice(1, 1, 1+1) + x.slice(1, 3, 3+1) / 2;  // bottom right y
+    return y;
+}
+
+/* tailored for YOLO series */
+class NonMaxSuppressionV2: public PipeProcessor {
+public:
+    float minScoreThrs, minSuppressionThrs;
+    // Dim format: box[4] + score[1] + classes[n]
+    int numClasses, scoreDim, minHW, maxHW;
+    NonMaxSuppressionV2(int num_classes, float score_t=0.5, 
+        float suppression_t=0.3, int min_hw=2, int max_hw=4096, string pp_name="NonMaxSuppressionV2"): 
+        PipeProcessor(1, 1, AVP_TENSOR, pp_name, STREAM_PROC), minScoreThrs(score_t), 
+        minSuppressionThrs(suppression_t), numClasses(num_classes), minHW(min_hw), maxHW(max_hw)
+    {
+        scoreDim = 4;
+    }
+    void run(DataList& in_data_list, DataList& out_data_list)
+    {
+        // Note bs must be one!!
+        auto batchDets = in_data_list[0].tensor(); // [#anchors, box+score+#classes]
+        int bs = batchDets.size(0);
+        assert(bs==1);
+        for(int i=0; i<bs; i++)
+        {
+            auto dets = batchDets[i];
+            auto mask = (dets.slice(1, scoreDim, scoreDim+1) >= minScoreThrs).squeeze(-1); 
+            dets = dets.index(mask);
+            // std::cout<<dets.sizes()<<"\n";
+            mask = ((dets.slice(1, 2, 3) > minHW) * (dets.slice(1, 2, 3) < maxHW) *
+                (dets.slice(1, 3, 4) > minHW) * (dets.slice(1, 3, 4) < maxHW)).squeeze(-1);
+            dets = dets.index(mask);
+            // std::cout<<dets.sizes()<<"\n";
+            if(dets.numel()==0)
+            {
+                auto outDets = torch::empty({0, 6}, torch::kF32);
+                out_data_list[0].loadData(outDets);
+                return;
+            }
+            // get classification confidence
+            dets.slice(1, scoreDim+1, scoreDim+1+numClasses) *= dets.slice(1, scoreDim, scoreDim+1);
+            // decode box
+            auto boxes = xywh2xyxy(dets.slice(1,0,4));
+            // get max()
+            auto [conf, idx] = dets.slice(1, scoreDim+1, scoreDim+1+numClasses).max(1, true);
+            mask = (conf > minScoreThrs).squeeze(-1);
+            auto tmpDets = torch::cat({boxes, conf, idx.to(torch::kFloat32)}, -1).index(mask);
+            // std::cout<<tmpDets.sizes()<<"\n";
+            // std::cout<<tmpDets<<"\n";
+            // std::cout<<mask.sizes()<<detBoxes.sizes()<<detScores.sizes()<<"\n";
+            // boxes offset by class id
+            auto offsetBoxes = tmpDets.slice(1, 0, 4) + tmpDets.slice(1, 5, 6) * maxHW;
+
+            std::vector<Tensor> outDetsList;
+
+            weightedNMS(torch::cat({offsetBoxes, tmpDets.slice(1,4,6)}, -1), outDetsList, scoreDim, minSuppressionThrs);
+
+            int numDets = outDetsList.size();
+            int j =0;
+            auto outDets = torch::empty({numDets, 6}, torch::kF32);
+            // auto outLandMarks = torch::empty({numDets, numKeypoints*2}, torch::kF32);
+            for(auto& det_t:outDetsList)
+            {
+                // [ymin, xmin, ymax, xmax]
+                outDets[j].slice(0,0,4) = det_t.slice(0,0,4) - det_t.slice(0,5,6) * maxHW; 
+                outDets[j].slice(0,4,6) = det_t.slice(0,4,6); 
+                j++;
+            }
+            out_data_list[0].loadData(outDets);
+        }
+    }
+};
+
 /*
  * Note: Given a LandMark Detection results, this processor, try to use land mark info
  * To generate a proper sized detection bounding box, in order to bypass the det NN path
@@ -330,4 +412,42 @@ public:
         out_data_list[0].loadData(bBoxTen);
     }
 };
+
+class YOLOParser: public PipeProcessor {
+public:
+    int numAnchors, numClasses, numBranches, anchorSize, inDim;
+    std::vector<int> rawAnchors;
+    Tensor anchors;
+    YOLOParser(int num_classes=80, int num_anchors=2535, int num_branches=2, 
+        std::vector<int> raw_anchors={10, 14, 23, 27, 37, 58, 81, 82, 135, 169, 344, 319},
+        string pp_name="YOLOParser"): PipeProcessor(num_branches, 1, AVP_TENSOR, pp_name, STREAM_PROC),
+        numAnchors(num_anchors), numClasses(num_classes), numBranches(num_branches), rawAnchors(raw_anchors)
+    {
+        anchorSize = rawAnchors.size() / numBranches / 2;
+        inDim = numClasses + 5;
+        anchors = torch::from_blob(rawAnchors.data(), {numBranches, anchorSize, 2}, torch::kI32);
+    }
+    void run(DataList& in_data_list, DataList& out_data_list)
+    {
+        auto detections = torch::empty({1,numAnchors,85});
+        int offset = 0;
+        for(int i=0; i < numBranches; i++)
+        {
+            auto branch = in_data_list[i].tensor();
+            auto shape = branch.sizes();
+            int squareSize = shape[2] * shape[3];
+            int numDets = squareSize * anchorSize;
+            auto gridIdx = torch::arange(squareSize).reshape({1,squareSize,1,1});
+            auto tmp = branch.reshape({1,shape[1], squareSize}).permute({0,2,1}).reshape({1,squareSize,anchorSize,inDim});
+            tmp.slice(3,0,1) = ((tmp.slice(3,0,1) + gridIdx % shape[3])             / shape[3]) * 416; // x
+            tmp.slice(3,1,2) = ((tmp.slice(3,1,2) + gridIdx.floor_divide(shape[2])) / shape[2]) * 416; // y
+            tmp.slice(3,2,4) = tmp.slice(3,2,4).exp() * anchors.slice(0,i,i+1).reshape({1,1,anchorSize,2}); // w & h
+            detections.slice(1, offset, offset+numDets) = tmp.reshape({1, numDets, inDim});
+            // std::cout<<detections.slice(1, offset, offset+1);
+            offset+=numDets;               
+        }
+        out_data_list[0].loadData(detections);
+    }
+};
+
 }

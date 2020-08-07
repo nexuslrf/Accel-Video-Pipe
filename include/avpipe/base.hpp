@@ -9,6 +9,7 @@
 #include <opencv2/opencv.hpp>
 #include <torch/script.h>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <tuple>
@@ -163,6 +164,10 @@ public:
                 // @TODO: must ensure mat.type()==CV_32FC3
                 // ignore type checking here...
                 mat_data = matList[idx];
+                if(mat_data.type() != CV_32FC3)
+                {
+                    mat_data.convertTo(mat_data, CV_32F);
+                }
                 tensor_data = torch::from_blob(mat_data.data, {mat_data.rows, mat_data.cols, 3}, torch::kFloat32);
                 if(enlist)
                     tensorList.push_back(tensor_data);

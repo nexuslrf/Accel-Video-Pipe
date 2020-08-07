@@ -684,20 +684,20 @@ if __name__ == "__main__":
     pose_yaml = "avp_example/pose_estimation.yaml"
     hand_yaml = "avp_example/multi_hand_tracking.yaml"
     hand_no_loop_yaml = "avp_example/multi_hand_tracking_no_loopback.yaml"
-    hand_test_yaml = "avp_example/multi_hand_tracking_test.yaml"
-    avp_task = AVP_Automation(pose_yaml, default_configs)
-    # avp_task.visualize(show_streams=False)
-    # avp_task.code_gen(loop_len=200, timing=True)
+    yolov3_yaml = "avp_example/yolov3.yaml"
+    avp_task = AVP_Automation(yolov3_yaml, default_configs)
+    avp_task.visualize(show_streams=True)
+    avp_task.code_gen(loop_len=200, timing=True)
     # avp_task.cmake_cpp(definitions=['_LOG_INFO'])
-    # avp_task.cmake_cpp()
-    # avp_task.cpp_build()
-    # avp_task.cpp_run()
-    avp_task.profile(loop_len=200)
+    avp_task.cmake_cpp()
+    avp_task.cpp_build()
+    avp_task.cpp_run()
+    # avp_task.profile(loop_len=200)
     
     # threads = avp_task.multi_threading(4)
     # avp_task.visualize(show_streams=False, threads=threads, show_timing=True, format='png')
-    # avp_task.code_gen(loop_len=50, threads=threads, timing=True)
-    # avp_task.cmake_cpp(definitions=['_LOG_INFO'])
+    # avp_task.code_gen(loop_len=-1, threads=threads, timing=False)
+    # avp_task.cmake_cpp(definitions=[])
     # avp_task.cpp_build()
     # avp_task.cpp_run()
     # print(threads)

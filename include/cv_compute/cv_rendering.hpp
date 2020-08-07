@@ -67,13 +67,28 @@ class DrawDetBoxes: public PipeProcessor {
 public:
     float heightScale, widthScale;
     int heightOffset, widthOffset;
+    int probIdx, classIdx;
     float probThres;
     cv::Scalar color;
-    DrawDetBoxes(float h_scale=1.0, float w_scale=1.0, int h_offset=0, int w_offset=0, 
-        float prob_thres=0, cv::Scalar c={0,255,0}, std::string pp_name="DrawDetBoxes"): 
+    std::vector<int> idxOrder;
+    std::vector<std::string> classes;
+    DrawDetBoxes(float h_scale=1.0, float w_scale=1.0, int h_offset=0, int w_offset=0, float prob_thres=0, 
+        cv::Scalar c={0,255,0}, std::vector<int> idx_order={0,1,2,3}, int class_idx=-1, int prob_idx=-1, 
+        std::string class_file="", std::string pp_name="DrawDetBoxes"): 
         PipeProcessor(2, 1, AVP_MAT, pp_name, STREAM_PROC), heightScale(h_scale), widthScale(w_scale), 
-        heightOffset(h_offset), widthOffset(w_offset), probThres(prob_thres), color(c)
+        heightOffset(h_offset), widthOffset(w_offset), probThres(prob_thres), color(c), idxOrder(idx_order),
+        probIdx(prob_idx), classIdx(class_idx)
     {
+        if(class_file!="")
+        {
+            std::fstream fin(class_file);
+            std::string line;
+            while(std::getline(fin, line))
+            {
+                classes.push_back(line);
+            }
+            fin.close();
+        }
         if(probThres!=0)
             numInStreams = 3;
         skipEmptyCheck = true;
@@ -102,15 +117,31 @@ public:
         {
             if(probs_a[i]>probThres)
             {
-                auto ymin = rawBndBoxes_a[i][0] * heightScale;
-                auto xmin = rawBndBoxes_a[i][1] * widthScale;
-                auto ymax = rawBndBoxes_a[i][2] * heightScale;
-                auto xmax = rawBndBoxes_a[i][3] * widthScale;
+                auto ymin = rawBndBoxes_a[i][idxOrder[0]] * heightScale;
+                auto xmin = rawBndBoxes_a[i][idxOrder[1]] * widthScale;
+                auto ymax = rawBndBoxes_a[i][idxOrder[2]] * heightScale;
+                auto xmax = rawBndBoxes_a[i][idxOrder[3]] * widthScale;
                 cv::rectangle(showFrame, cv::Rect(xmin+widthOffset, ymin+heightOffset, xmax-xmin, ymax-ymin), color);
+                std::string text = "";
+                if(classIdx >= 0)
+                {
+                    int class_id = rawBndBoxes_a[i][classIdx];
+                    if(classes.size())
+                        text += (" class: "+classes[class_id]);
+                    else
+                        text += (" class: "+std::to_string(class_id));
+                }
+                if(probIdx >= 0)
+                {
+                    float prob = rawBndBoxes_a[i][probIdx];
+                    text += (" prob: "+std::to_string(prob));
+                }
+                cv::putText(showFrame, text, cv::Point(xmin+widthOffset, ymin+heightOffset), 
+                    cv::FONT_HERSHEY_COMPLEX, 0.6, color, 1);
+                // std::cout<<text<<"\n";
             }
         }
         out_data_list[0].loadData(showFrame);
     }
 };
-
 }

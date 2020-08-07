@@ -57,13 +57,65 @@ public:
     }
 };
 
+/* written for YOLO series 
+Argments: 
+    auto_shape: do the minimum padding to ensure h & w are muliple of a factor (e.g., 64)
+    ~~scaleFill: pad to the target shape.~~ 
+*/
+class PaddedResize: public PipeProcessor {
+public:
+    int dstHeight, dstWidth;
+    int srcHeight, srcWidth;
+    int unpadHeight, unpadWidth;
+    int top, bottom, left, right;
+    bool flip, autoShape, scaleup;
+    float ratio;
+    cv::Scalar color;
+    PaddedResize(int src_height, int src_width, int dst_height, int dst_width, 
+        cv::Scalar c={114,114,114}, bool auto_shape=false, bool scale_up=true, int factor=64,
+        bool flip_img=false, string pp_name="PaddedResize"):
+        PipeProcessor(1, 1, AVP_MAT, pp_name, STREAM_PROC), srcHeight(src_height), srcWidth(src_width),
+        dstHeight(dst_height), dstWidth(dst_width), flip(flip_img), color(c),
+        autoShape(auto_shape), scaleup(scale_up)
+    {
+        ratio = std::min(1.0 * dstWidth / srcWidth, 1.0 * dstHeight / srcHeight);
+        if(!scaleup)
+            ratio = std::min(ratio, (float)1.0);
+        unpadHeight = srcHeight * ratio;
+        unpadWidth = srcWidth * ratio;
+        int dh = dstHeight - unpadHeight;
+        int dw = dstWidth - unpadWidth;
+        if(autoShape)
+        {
+            dw %= factor;
+            dh %= factor;
+        }
+        top = bottom = dh / 2;
+        left = right = dw / 2;
+        bottom += (dh % 2);
+        right += (dw % 2);
+    }
+    void run(DataList& in_data_list, DataList& out_data_list)
+    {
+        for(auto &in_mat: in_data_list[0].matList)
+        {
+            Mat unpad_mat, dst_mat;
+            if(flip)
+                cv::flip(in_mat, in_mat, +1);
+            cv::resize(in_mat, unpad_mat, {unpadWidth, unpadHeight}, 0, 0, cv::INTER_LINEAR);
+            cv::copyMakeBorder(unpad_mat, dst_mat, top, bottom, left, right, cv::BORDER_CONSTANT, color);
+            out_data_list[0].loadData(dst_mat);
+        }
+    }
+};
+
 class ImgNormalization: public PipeProcessor {
     cv::Scalar mean, stdev;
 public:
     ImgNormalization(cv::Scalar mean_var, cv::Scalar stdev_var, std::string pp_name="ImgNormalization"): 
         PipeProcessor(1,1, AVP_MAT, pp_name, STREAM_PROC), mean(mean_var), stdev(stdev_var)
     {} 
-    ImgNormalization(float mean_var=0.5, float stdev_var=0.5, std::string pp_name=""): PipeProcessor(1,1, AVP_MAT, pp_name, STREAM_PROC)
+    ImgNormalization(float mean_var=0.5, float stdev_var=0.5, std::string pp_name="ImgNormalization"): PipeProcessor(1,1, AVP_MAT, pp_name, STREAM_PROC)
     {
         mean = {mean_var, mean_var, mean_var};
         stdev = {stdev_var, stdev_var, stdev_var};
@@ -76,6 +128,23 @@ public:
             cv::cvtColor(in_mat, tmp_frame, cv::COLOR_BGR2RGB);
             tmp_frame.convertTo(tmp_frame, CV_32F);
             tmp_frame = (tmp_frame / 255.0 - mean) / stdev;
+            out_data_list[0].loadData(tmp_frame);
+        }
+    }
+};
+
+class ColorSpaceConverter: public PipeProcessor {
+public:
+    int convertCode;
+    ColorSpaceConverter(int convert_code=cv::COLOR_BGR2RGB, std::string pp_name="ColorSpaceConverter"):
+        PipeProcessor(1, 1, AVP_MAT, pp_name, STREAM_PROC), convertCode(convert_code)
+    {}
+    void run(DataList& in_data_list, DataList& out_data_list)
+    {
+        for(auto &in_mat: in_data_list[0].matList)
+        {
+            cv::Mat tmp_frame;
+            cv::cvtColor(in_mat, tmp_frame, convertCode);
             out_data_list[0].loadData(tmp_frame);
         }
     }
