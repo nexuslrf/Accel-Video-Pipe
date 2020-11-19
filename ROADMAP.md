@@ -173,3 +173,5 @@ Processors:
 
   * [ ] iOS
   * [ ] Android
+
+* Good paper to look at: https://arxiv.org/pdf/2011.01302.pdf
