@@ -17,6 +17,7 @@ Accel-Video Pipe (AV-Pipe or AVP) is an integrated C++ library for AI video infe
   * ONNXRuntime
   * TensorRT (Nvidia® GPU)
   * TVM (not well supported now)
+  * ncnn (For mobile device, still testing...)
 
   Note: mainly focus on ONNX network format. For TensorFlow-Models, plz check the [mediapipe](https://github.com/google/mediapipe/).
 
