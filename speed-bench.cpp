@@ -11,6 +11,8 @@
 #include <opencv2/opencv.hpp>
 #include <torch/script.h>
 #include <inference_engine.hpp>
+#include "net.h" // ncnn
+
 // #include <dlpack/dlpack.h>
 // #include <tvm/runtime/module.h>
 // #include <tvm/runtime/registry.h>
@@ -48,17 +50,18 @@ void fillBlobRandom(InferenceEngine::Blob::Ptr& inputBlob) {
 }
 
 bool libtorch = false, 
-    openvino_cpu = false, 
+    openvino_cpu = true, 
     openvino_gpu = false, 
-    onnxrt = true;
+    onnxrt = false,
+    ncnn_test = true;
 
 // int modelWidth=256, modelHeight=256;
 // int batchSize = 1, numJoints=17;
-int modelWidth=192, modelHeight=320;
+int modelWidth=192, modelHeight=256;
 int batchSize = 1, numJoints=17;
 int numLoop = 10;
-string model_name = //"C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\palm_detection";
-    "C:\\Users\\shoot\\Programming\\CV_Experiments\\yolov3\\weights\\yolov3-tiny";
+string model_name = "C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\pose_resnet_34_256x192";
+    // "C:\\Users\\shoot\\Programming\\CV_Experiments\\yolov3\\weights\\yolov3-tiny";
 int main()
 {
     // auto tmp = torch::from_file("anchors.bin", NULL, 2944*4, torch::kFloat32).reshape({2944, 4});
@@ -90,15 +93,15 @@ int main()
         }
         updInput(inputs, veriTensor);
         rawOut = model.forward(inputs).toTensor();
-        cout<<"Veri SUM: "<<rawOut.sum()<<endl;
+        cout<<"Veri SUM: "<<rawOut.sum()<<"\nSize:"<<rawOut.sizes()<<endl;
     }
 
     /* OpenVINO */
     // CPU Version
     if(openvino_cpu)
     {
-        string model_xml = model_name+"_fp16.xml";
-        string model_bin = model_name+"_fp16.bin";
+        string model_xml = model_name+".xml";
+        string model_bin = model_name+".bin";
         InferenceEngine::Core ie;
         auto network = ie.ReadNetwork(model_xml, model_bin);
         network.setBatchSize(batchSize);
@@ -127,7 +130,7 @@ int main()
         infer_request.SetBlob(input_name, inBlob);
         infer_request.Infer();
         InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
-        auto outTensor = torch::from_blob(output->buffer().as<float*>(), {batchSize,2944,18});
+        auto outTensor = torch::from_blob(output->buffer().as<float*>(), {batchSize,17,64,48});
         cout<<"Veri SUM: "<<outTensor.sum()<<endl;
     }
 
@@ -164,7 +167,7 @@ int main()
         infer_request.SetBlob(input_name, inBlob);
         infer_request.Infer();
         InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
-        auto outTensor = torch::from_blob(output->buffer().as<float*>(), {batchSize,2944,18});
+        auto outTensor = torch::from_blob(output->buffer().as<float*>(), {batchSize,17,64,48});
         cout<<"Veri SUM: "<<outTensor.sum()<<endl;
     }
 
@@ -279,15 +282,32 @@ int main()
         Ort::AllocatorWithDefaultOptions allocator;
 
         // print number of model input nodes
-        size_t num_input_nodes = session.GetInputCount();
+        
         std::vector<int64_t> input_node_dims = {batchSize, 3, modelHeight, modelWidth};  // simplify... this model has only 1 input node {1, 3, 224, 224}.
                                                 // Otherwise need vector<vector<>>
-
         size_t input_tensor_size = batchSize * 3 * modelHeight * modelWidth;
+        
         std::vector<float> input_tensor_values(input_tensor_size);
-        std::vector<const char*> input_node_names = {"images"};
-        std::vector<const char*> output_node_names = {"classes", "boxes"};
 
+        size_t numInputNodes = session.GetInputCount();
+        auto inputNodeNames = std::vector<const char*>(numInputNodes);
+        // Note: ensure numInputNodes == 1
+        for(size_t i=0; i<numInputNodes; i++)
+        {
+            char* input_name = session.GetInputName(i, allocator);
+            inputNodeNames[i] = input_name;
+        }
+        Ort::TypeInfo typeInfo = session.GetInputTypeInfo(0);
+        auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+
+        size_t numOutputNodes = session.GetOutputCount();
+        auto outputNodeNames = std::vector<const char*>(numOutputNodes);
+        for (size_t i = 0; i < numOutputNodes; i++) {
+            char* output_name = session.GetOutputName(i, allocator);
+            outputNodeNames[i] = output_name;
+        }
+
+        cout<<inputNodeNames<<"\n"<<outputNodeNames<<"\n";
         // initialize input data with values in [0.0, 1.0]
         
 
@@ -302,10 +322,74 @@ int main()
             auto stop1 = chrono::high_resolution_clock::now();                                
             auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
             Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, (float_t*)inData.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
-            cout<<"Start infer?\n";
-            auto output_tensors = session.Run(Ort::RunOptions{nullptr}, input_node_names.data(), &input_tensor, 1, output_node_names.data(), 1);
+            auto output_tensors = session.Run(Ort::RunOptions{nullptr}, inputNodeNames.data(), &input_tensor, 1, outputNodeNames.data(), 1);
             auto stop2 = chrono::high_resolution_clock::now(); 
             cout<<"ONNX Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
         }
+        Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, (float_t*)veriTensor.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
+        auto output_tensors = session.Run(Ort::RunOptions{nullptr}, inputNodeNames.data(), &input_tensor, 1, outputNodeNames.data(), 1);
+        float* rawPtr = output_tensors[0].Ort::Value::template GetTensorMutableData<float>();
+        auto outTensor = torch::from_blob(rawPtr, {batchSize,17,64,48});
+        cout<<"Veri SUM: "<<outTensor.sum()<<endl;
+    }
+
+    if(ncnn_test)
+    {
+        ncnn::Net model;
+        model.opt.use_vulkan_compute = true;
+        model.load_param((model_name+"-opt.param").c_str());
+        cout<<"PARAM!\n";
+        model.load_model((model_name+"-opt.bin").c_str());
+        cout<<"BIN!\n";
+        for(int i=0; i<numLoop; i++)
+        {
+            ncnn::Extractor ex = model.create_extractor();
+            // cout<<"Extractor!\n";
+            ex.set_light_mode(true);
+            ex.set_num_threads(4);
+            // cout<<"CONFIG!\n";
+            auto stop1 = chrono::high_resolution_clock::now(); 
+            // cv::Mat m = cv::imread("C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\messi.jpg", 1);
+            // ncnn::Mat in = ncnn::Mat::from_pixels_resize(m.data, ncnn::Mat::PIXEL_BGR, m.cols, m.rows, modelWidth, modelHeight);
+            auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
+            ncnn::Mat in(modelWidth, modelHeight, 3);
+            int idx_t=0, idx_m=0;
+            for(int c=0; c<3; c++)
+            {
+                idx_m = 0;
+                float* ptr=in.channel(c);
+                for(int h=0;h<modelHeight; h++)
+                    for(int w=0; w<modelWidth; w++)
+                        ptr[idx_m++] = ((float *)inData.data_ptr())[idx_t++];
+            }
+            // cout<<in.shape()[0]<<"\n";
+            // cout<<"MAT!\n";
+            ex.input("input", in);
+            // cout<<"IN!\n";
+            ncnn::Mat feat;
+            // cout<<"INFER!\n";
+            ex.extract("output", feat);
+            auto stop2 = chrono::high_resolution_clock::now(); 
+            cout<<"NCNN Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+        }
+        ncnn::Extractor ex = model.create_extractor();
+        ex.set_light_mode(true);
+        ex.set_num_threads(4); 
+        ncnn::Mat in(modelWidth, modelHeight, 3);
+        int idx_t=0, idx_m=0;
+        for(int c=0; c<3; c++)
+        {
+            idx_m = 0;
+            float* ptr=in.channel(c);
+            for(int h=0;h<modelHeight; h++)
+                for(int w=0; w<modelWidth; w++)
+                    ptr[idx_m++] = ((float *)veriTensor.data_ptr())[idx_t++];
+        }
+        ex.input("input", in);
+        ncnn::Mat feat;
+        // cout<<"INFER!\n";
+        ex.extract("output", feat);
+        auto outTensor = torch::from_blob(feat, {batchSize,17,64,48});
+        cout<<"Veri SUM: "<<outTensor.sum()<<endl;
     }
 }
