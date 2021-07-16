@@ -12,7 +12,7 @@
 #include <torch/script.h>
 #include <inference_engine.hpp>
 #include "net.h" // ncnn
-
+#include <MNN/Interpreter.hpp>
 // #include <dlpack/dlpack.h>
 // #include <tvm/runtime/module.h>
 // #include <tvm/runtime/registry.h>
@@ -49,11 +49,12 @@ void fillBlobRandom(InferenceEngine::Blob::Ptr& inputBlob) {
     }
 }
 
-bool libtorch = false, 
+bool libtorch = true, 
     openvino_cpu = true, 
     openvino_gpu = false, 
     onnxrt = false,
-    ncnn_test = true;
+    ncnn_test = false,
+    mnn_test = true;
 
 // int modelWidth=256, modelHeight=256;
 // int batchSize = 1, numJoints=17;
@@ -322,6 +323,7 @@ int main()
             auto stop1 = chrono::high_resolution_clock::now();                                
             auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
             Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, (float_t*)inData.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
+            cout<<"Tensor create!\n";
             auto output_tensors = session.Run(Ort::RunOptions{nullptr}, inputNodeNames.data(), &input_tensor, 1, outputNodeNames.data(), 1);
             auto stop2 = chrono::high_resolution_clock::now(); 
             cout<<"ONNX Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
@@ -391,5 +393,53 @@ int main()
         ex.extract("output", feat);
         auto outTensor = torch::from_blob(feat, {batchSize,17,64,48});
         cout<<"Veri SUM: "<<outTensor.sum()<<endl;
+    }
+
+    if(mnn_test)
+    {
+        /*
+        Start to Optimize the MNN Net...
+            inputTensors : [ input, ]
+            outputTensors: [ output, ]
+        */
+        string model_path = model_name + ".mnn";
+        auto mnnNet = std::shared_ptr<MNN::Interpreter>(MNN::Interpreter::createFromFile(model_path.c_str()));
+        MNN::ScheduleConfig netConfig;
+        netConfig.type      = MNN_FORWARD_CPU;
+        netConfig.numThread = 4;
+        MNN::BackendConfig backendConfig;
+        backendConfig.precision = MNN::BackendConfig::Precision_Low;
+        netConfig.backendConfig = &backendConfig;
+        auto session        = mnnNet->createSession(netConfig);
+        auto input = mnnNet->getSessionInput(session, nullptr);
+        mnnNet->resizeTensor(input, {batchSize, 3, modelHeight, modelWidth});
+        mnnNet->resizeSession(session);
+        cout<<input->shape()<<endl;
+        auto nhwc_Tensor = MNN::Tensor::create<float>({batchSize,3,modelHeight,modelWidth}, NULL, MNN::Tensor::CAFFE);
+        auto nhwc_data   = nhwc_Tensor->host<float>();
+        auto nhwc_size   = nhwc_Tensor->size();
+        auto out_TensorHost = MNN::Tensor::create<float>({batchSize,17,64,48}, NULL, MNN::Tensor::CAFFE);
+        for(int i=0; i<numLoop; i++)
+        {
+            auto stop1 = chrono::high_resolution_clock::now(); 
+            auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
+            memcpy(nhwc_data, (float_t *)veriTensor.data_ptr(), nhwc_size);
+            mnnNet->runSession(session);
+            auto stop2 = chrono::high_resolution_clock::now(); 
+            auto outputTensor = mnnNet->getSessionOutput(session, NULL);
+            cout<<"MNN Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+        }
+        
+        // cout<<"create new tensor\n";
+        // auto input2 = mnnNet->getSessionInput(session, nullptr);  //MNN::Tensor
+        // cout<<input2->shape()<<endl;
+        ::memcpy(nhwc_data, (float_t *)veriTensor.data_ptr(), nhwc_size);
+        input->copyFromHostTensor(nhwc_Tensor);
+        mnnNet->runSession(session);
+        auto outputTensor4 = mnnNet->getSessionOutput(session, NULL);
+        cout<<outputTensor4->shape()<<endl;
+        outputTensor4->copyToHostTensor(out_TensorHost);
+        auto outTensor4 = torch::from_blob(out_TensorHost->host<float>(), {batchSize,17,64,48});
+        cout<<"Veri SUM: "<<outTensor4.sum()<<endl;
     }
 }
