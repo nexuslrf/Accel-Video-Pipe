@@ -18,14 +18,17 @@ include_directories( "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx
 link_directories( "/Users/liangruofan1/Program/tvm/build")
 
 add_executable( video-analysis video-analysis.cpp )
-target_link_libraries( video-analysis ${OpenCV_LIBS} )
-target_link_libraries( video-analysis "${TORCH_LIBRARIES}")
+target_link_libraries( video-analysis ${OpenCV_LIBS})
+target_link_libraries( video-analysis ${TORCH_LIBRARIES})
+
 #add_definitions(-D_DEBUG)
 #add_definitions(-D_FOO_TEST)
 add_definitions(-D_TIMING)
 
 #set(IE_MAIN_SAMPLES_DIR ${CMAKE_CURRENT_BINARY_DIR})
 add_executable( speed-bench speed-bench.cpp )
+link_directories("${mnn_DIR}\\out\\build\\x64-Release")
+target_link_libraries( speed-bench "${mnn_DIR}\\out\\build\\x64-Release\\MNN.lib")
 target_link_libraries( speed-bench ${OpenCV_LIBS} )
 target_link_libraries( speed-bench ${TORCH_LIBRARIES})
 target_link_libraries( speed-bench "${InferenceEngine_LIBRARIES}")

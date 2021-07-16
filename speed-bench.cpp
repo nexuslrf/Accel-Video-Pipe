@@ -1,3 +1,5 @@
+// set "MSBUILD_BIN=C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe"
+// "%MSBUILD_BIN%" Samples.sln /p:Configuration=Release
 #include <fstream>
 #include <sstream>
 #include <cmath>
@@ -9,10 +11,12 @@
 #include <opencv2/opencv.hpp>
 #include <torch/script.h>
 #include <inference_engine.hpp>
-#include <dlpack/dlpack.h>
-#include <tvm/runtime/module.h>
-#include <tvm/runtime/registry.h>
-#include <tvm/runtime/packed_func.h>
+#include "net.h" // ncnn
+#include <MNN/Interpreter.hpp>
+// #include <dlpack/dlpack.h>
+// #include <tvm/runtime/module.h>
+// #include <tvm/runtime/registry.h>
+// #include <tvm/runtime/packed_func.h>
 #include <vector>
 #include <onnxruntime_cxx_api.h>
 // #ifdef CV_CXX11
@@ -45,14 +49,32 @@ void fillBlobRandom(InferenceEngine::Blob::Ptr& inputBlob) {
     }
 }
 
+bool libtorch = true, 
+    openvino_cpu = true, 
+    openvino_gpu = false, 
+    onnxrt = false,
+    ncnn_test = false,
+    mnn_test = true;
 
+// int modelWidth=256, modelHeight=256;
+// int batchSize = 1, numJoints=17;
 int modelWidth=192, modelHeight=256;
-int batchSize = 2, numJoints=17;
+int batchSize = 1, numJoints=17;
 int numLoop = 10;
 string model_name = "/Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192";
 int main()
 {
-    /* LibTorch */
+    // auto tmp = torch::from_file("anchors.bin", NULL, 2944*4, torch::kFloat32).reshape({2944, 4});
+    // cout<<tmp.slice(0,0,6)<<endl;
+
+    // fstream fin("anchors.bin", ios::in | ios::binary);
+    // auto anchors = torch::empty({2944, 4}, torch::kFloat32);
+    // fin.read((char *)anchors.data_ptr(), anchors.numel() * sizeof(float));
+    // cout<<anchors.slice(0,0,6)<<endl;
+    cout<<"Start!\n";
+    auto veriTensor = torch::randn({batchSize, 3, modelHeight, modelWidth}, torch::kFloat32);
+    // /* LibTorch */
+    if(libtorch)
     {
         torch::NoGradGuard no_grad; // Disable back-grad buffering
         torch::Tensor inTensor, rawOut;
@@ -69,6 +91,9 @@ int main()
             auto stop2 = chrono::high_resolution_clock::now(); 
             cout<<"LibTorch Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
         }
+        updInput(inputs, veriTensor);
+        rawOut = model.forward(inputs).toTensor();
+        cout<<"Veri SUM: "<<rawOut.sum()<<"\nSize:"<<rawOut.sizes()<<endl;
     }
 
     /* OpenVINO */
@@ -88,6 +113,7 @@ int main()
         auto tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32,
                                         {(uint)batchSize, 3, (uint)modelHeight, (uint)modelWidth},
                                         InferenceEngine::Layout::NCHW);
+        cout<<"Start Infer?\n";
         for(int i=0; i<numLoop; i++)
         {                                  
             auto stop1 = chrono::high_resolution_clock::now();                                
@@ -99,7 +125,86 @@ int main()
             auto stop2 = chrono::high_resolution_clock::now(); 
             cout<<"OpenVINO CPU Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
         }
+        InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t*)veriTensor.data_ptr());
+        infer_request.SetBlob(input_name, inBlob);
+        infer_request.Infer();
+        InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+        auto outTensor = torch::from_blob(output->buffer().as<float*>(), {batchSize,17,64,48});
+        cout<<"Veri SUM: "<<outTensor.sum()<<endl;
     }
+
+    /* OpenVINO */
+    // GPU Version
+    if(openvino_gpu)
+    {
+        string model_xml = model_name + "_fp16.xml";
+        string model_bin = model_name + "_fp16.bin";
+        InferenceEngine::Core ie;
+        auto network = ie.ReadNetwork(model_xml, model_bin);
+        network.setBatchSize(batchSize);
+        auto input_info = network.getInputsInfo().begin()->second;
+        string input_name = network.getInputsInfo().begin()->first;
+        auto output_info = network.getOutputsInfo().begin()->second;
+        string output_name = network.getOutputsInfo().begin()->first;
+        auto executable_network = ie.LoadNetwork(network, "GPU"); // Unknown problems for GPU version
+        auto infer_request = executable_network.CreateInferRequest();
+        auto tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32,
+                                                 {(uint)batchSize, 3, (uint)modelHeight, (uint)modelWidth},
+                                                 InferenceEngine::Layout::NCHW);
+        for (int i = 0; i < numLoop; i++)
+        {
+            auto stop1 = chrono::high_resolution_clock::now();
+            auto inData = torch::randn({batchSize, 3, modelHeight, modelWidth}, torch::kF32);
+            InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t *)inData.data_ptr());
+            infer_request.SetBlob(input_name, inBlob);
+            infer_request.Infer();
+            InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+            auto stop2 = chrono::high_resolution_clock::now();
+            cout << "OpenVINO GPU Processing Time: " << chrono::duration_cast<chrono::milliseconds>(stop2 - stop1).count() << "ms\n";
+        }
+        InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t*)veriTensor.data_ptr());
+        infer_request.SetBlob(input_name, inBlob);
+        infer_request.Infer();
+        InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+        auto outTensor = torch::from_blob(output->buffer().as<float*>(), {batchSize,17,64,48});
+        cout<<"Veri SUM: "<<outTensor.sum()<<endl;
+    }
+
+    /* OpenVINO */
+    // VPU Version
+    // {
+    //     string model_xml = model_name + "_fp16.xml";
+    //     string model_bin = model_name + "_fp16.bin";
+    //     InferenceEngine::Core ie;
+    //     auto network = ie.ReadNetwork(model_xml, model_bin);
+    //     network.setBatchSize(batchSize);
+    //     auto input_info = network.getInputsInfo().begin()->second;
+    //     string input_name = network.getInputsInfo().begin()->first;
+    //     auto output_info = network.getOutputsInfo().begin()->second;
+    //     string output_name = network.getOutputsInfo().begin()->first;
+    //     auto executable_network = ie.LoadNetwork(network, "MYRIAD"); // Unknown problems for GPU version
+    //     auto infer_request = executable_network.CreateInferRequest();
+    //     auto tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32,
+    //                                              {(uint)batchSize, 3, (uint)modelHeight, (uint)modelWidth},
+    //                                              InferenceEngine::Layout::NCHW);
+    //     for (int i = 0; i < numLoop; i++)
+    //     {
+    //         auto stop1 = chrono::high_resolution_clock::now();
+    //         auto inData = torch::randn({batchSize, 3, modelHeight, modelWidth}, torch::kF32);
+    //         InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t *)inData.data_ptr());
+    //         infer_request.SetBlob(input_name, inBlob);
+    //         infer_request.Infer();
+    //         InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+    //         auto stop2 = chrono::high_resolution_clock::now();
+    //         cout << "OpenVINO VPU Processing Time: " << chrono::duration_cast<chrono::milliseconds>(stop2 - stop1).count() << "ms\n";
+    //     }
+    //     InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t*)veriTensor.data_ptr());
+    //     infer_request.SetBlob(input_name, inBlob);
+    //     infer_request.Infer();
+    //     InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+    //     auto outTensor = torch::from_blob(output->buffer().as<float*>(), {1,2944,18});
+    //     cout<<"Veri SUM: "<<outTensor.sum()<<endl;
+    // }
 
     /* TVM */
     // {
@@ -155,6 +260,7 @@ int main()
 
     /* ONNX Runtime */
     // Ref: https://github.com/microsoft/onnxruntime/blob/master/csharp/test/Microsoft.ML.OnnxRuntime.EndToEndTests.Capi/CXX_Api_Sample.cpp
+    if(onnxrt)
     {
         // initialize  enviroment...one enviroment per process
         // enviroment maintains thread pools and other state info
@@ -165,22 +271,42 @@ int main()
         session_options.SetIntraOpNumThreads(1);
         session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
-        const char* model_path = (model_name+".onnx").c_str();
-        Ort::Session session(env, model_path, session_options);
+        string tmp = model_name + ".onnx";
+        wstring model_path(tmp.begin(), tmp.end());
+        cout<<"Hello?#1 "<<tmp<<"\n";
+        Ort::Session session(env, model_path.c_str(), session_options);
+        cout<<"Session Complete!\n";
         //*************************************************************************
         // print model input layer (node names, types, shape etc.)
         Ort::AllocatorWithDefaultOptions allocator;
 
         // print number of model input nodes
-        size_t num_input_nodes = session.GetInputCount();
+        
         std::vector<int64_t> input_node_dims = {batchSize, 3, modelHeight, modelWidth};  // simplify... this model has only 1 input node {1, 3, 224, 224}.
                                                 // Otherwise need vector<vector<>>
-
         size_t input_tensor_size = batchSize * 3 * modelHeight * modelWidth;
+        
         std::vector<float> input_tensor_values(input_tensor_size);
-        std::vector<const char*> input_node_names = {"input"};
-        std::vector<const char*> output_node_names = {"output"};
 
+        size_t numInputNodes = session.GetInputCount();
+        auto inputNodeNames = std::vector<const char*>(numInputNodes);
+        // Note: ensure numInputNodes == 1
+        for(size_t i=0; i<numInputNodes; i++)
+        {
+            char* input_name = session.GetInputName(i, allocator);
+            inputNodeNames[i] = input_name;
+        }
+        Ort::TypeInfo typeInfo = session.GetInputTypeInfo(0);
+        auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+
+        size_t numOutputNodes = session.GetOutputCount();
+        auto outputNodeNames = std::vector<const char*>(numOutputNodes);
+        for (size_t i = 0; i < numOutputNodes; i++) {
+            char* output_name = session.GetOutputName(i, allocator);
+            outputNodeNames[i] = output_name;
+        }
+
+        cout<<inputNodeNames<<"\n"<<outputNodeNames<<"\n";
         // initialize input data with values in [0.0, 1.0]
         
 
@@ -189,43 +315,129 @@ int main()
 
         // score model & input tensor, get back output tensor
         // assert(output_tensors.size() == 1 && output_tensors.front().IsTensor());
-        
+        cout<<"Start ONNXRT!\n";
         for(int i=0; i<numLoop; i++)
         {                                  
             auto stop1 = chrono::high_resolution_clock::now();                                
             auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
             Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, (float_t*)inData.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
-            auto output_tensors = session.Run(Ort::RunOptions{nullptr}, input_node_names.data(), &input_tensor, 1, output_node_names.data(), 1);
+            cout<<"Tensor create!\n";
+            auto output_tensors = session.Run(Ort::RunOptions{nullptr}, inputNodeNames.data(), &input_tensor, 1, outputNodeNames.data(), 1);
             auto stop2 = chrono::high_resolution_clock::now(); 
             cout<<"ONNX Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
         }
+        Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, (float_t*)veriTensor.data_ptr(), input_tensor_size, input_node_dims.data(), 4);
+        auto output_tensors = session.Run(Ort::RunOptions{nullptr}, inputNodeNames.data(), &input_tensor, 1, outputNodeNames.data(), 1);
+        float* rawPtr = output_tensors[0].Ort::Value::template GetTensorMutableData<float>();
+        auto outTensor = torch::from_blob(rawPtr, {batchSize,17,64,48});
+        cout<<"Veri SUM: "<<outTensor.sum()<<endl;
     }
-    /* OpenVINO VPU*/
+
+    if(ncnn_test)
     {
-        string model_xml = model_name+"_FP16.xml";
-        string model_bin = model_name+"_FP16.bin";
-        InferenceEngine::Core ie;
-        auto network = ie.ReadNetwork(model_xml, model_bin);
-        network.setBatchSize(batchSize);
-        auto input_info = network.getInputsInfo().begin()->second;
-        string input_name = network.getInputsInfo().begin()->first;
-        auto output_info = network.getOutputsInfo().begin()->second;
-        string output_name = network.getOutputsInfo().begin()->first;
-        auto executable_network = ie.LoadNetwork(network, "MYRIAD"); // Unknown problems for GPU version
-        auto infer_request = executable_network.CreateInferRequest();
-        auto tDesc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32,
-                                        {(uint)batchSize, 3, (uint)modelHeight, (uint)modelWidth},
-                                        InferenceEngine::Layout::NCHW);
+        ncnn::Net model;
+        model.opt.use_vulkan_compute = true;
+        model.load_param((model_name+"-opt.param").c_str());
+        cout<<"PARAM!\n";
+        model.load_model((model_name+"-opt.bin").c_str());
+        cout<<"BIN!\n";
         for(int i=0; i<numLoop; i++)
-        {                                  
-            auto stop1 = chrono::high_resolution_clock::now();                                
+        {
+            ncnn::Extractor ex = model.create_extractor();
+            // cout<<"Extractor!\n";
+            ex.set_light_mode(true);
+            ex.set_num_threads(4);
+            // cout<<"CONFIG!\n";
+            auto stop1 = chrono::high_resolution_clock::now(); 
+            // cv::Mat m = cv::imread("C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\messi.jpg", 1);
+            // ncnn::Mat in = ncnn::Mat::from_pixels_resize(m.data, ncnn::Mat::PIXEL_BGR, m.cols, m.rows, modelWidth, modelHeight);
             auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
-            InferenceEngine::Blob::Ptr inBlob = InferenceEngine::make_shared_blob<float_t>(tDesc, (float_t*)inData.data_ptr());
-            infer_request.SetBlob(input_name, inBlob);
-            infer_request.Infer();
-            InferenceEngine::Blob::Ptr output = infer_request.GetBlob(output_name);
+            ncnn::Mat in(modelWidth, modelHeight, 3);
+            int idx_t=0, idx_m=0;
+            for(int c=0; c<3; c++)
+            {
+                idx_m = 0;
+                float* ptr=in.channel(c);
+                for(int h=0;h<modelHeight; h++)
+                    for(int w=0; w<modelWidth; w++)
+                        ptr[idx_m++] = ((float *)inData.data_ptr())[idx_t++];
+            }
+            // cout<<in.shape()[0]<<"\n";
+            // cout<<"MAT!\n";
+            ex.input("input", in);
+            // cout<<"IN!\n";
+            ncnn::Mat feat;
+            // cout<<"INFER!\n";
+            ex.extract("output", feat);
             auto stop2 = chrono::high_resolution_clock::now(); 
-            cout<<"OpenVINO VPU Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+            cout<<"NCNN Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
         }
+        ncnn::Extractor ex = model.create_extractor();
+        ex.set_light_mode(true);
+        ex.set_num_threads(4); 
+        ncnn::Mat in(modelWidth, modelHeight, 3);
+        int idx_t=0, idx_m=0;
+        for(int c=0; c<3; c++)
+        {
+            idx_m = 0;
+            float* ptr=in.channel(c);
+            for(int h=0;h<modelHeight; h++)
+                for(int w=0; w<modelWidth; w++)
+                    ptr[idx_m++] = ((float *)veriTensor.data_ptr())[idx_t++];
+        }
+        ex.input("input", in);
+        ncnn::Mat feat;
+        // cout<<"INFER!\n";
+        ex.extract("output", feat);
+        auto outTensor = torch::from_blob(feat, {batchSize,17,64,48});
+        cout<<"Veri SUM: "<<outTensor.sum()<<endl;
+    }
+
+    if(mnn_test)
+    {
+        /*
+        Start to Optimize the MNN Net...
+            inputTensors : [ input, ]
+            outputTensors: [ output, ]
+        */
+        string model_path = model_name + ".mnn";
+        auto mnnNet = std::shared_ptr<MNN::Interpreter>(MNN::Interpreter::createFromFile(model_path.c_str()));
+        MNN::ScheduleConfig netConfig;
+        netConfig.type      = MNN_FORWARD_CPU;
+        netConfig.numThread = 4;
+        MNN::BackendConfig backendConfig;
+        backendConfig.precision = MNN::BackendConfig::Precision_Low;
+        netConfig.backendConfig = &backendConfig;
+        auto session        = mnnNet->createSession(netConfig);
+        auto input = mnnNet->getSessionInput(session, nullptr);
+        mnnNet->resizeTensor(input, {batchSize, 3, modelHeight, modelWidth});
+        mnnNet->resizeSession(session);
+        cout<<input->shape()<<endl;
+        auto nhwc_Tensor = MNN::Tensor::create<float>({batchSize,3,modelHeight,modelWidth}, NULL, MNN::Tensor::CAFFE);
+        auto nhwc_data   = nhwc_Tensor->host<float>();
+        auto nhwc_size   = nhwc_Tensor->size();
+        auto out_TensorHost = MNN::Tensor::create<float>({batchSize,17,64,48}, NULL, MNN::Tensor::CAFFE);
+        for(int i=0; i<numLoop; i++)
+        {
+            auto stop1 = chrono::high_resolution_clock::now(); 
+            auto inData = torch::randn({batchSize,3,modelHeight,modelWidth}, torch::kF32);
+            memcpy(nhwc_data, (float_t *)veriTensor.data_ptr(), nhwc_size);
+            mnnNet->runSession(session);
+            auto stop2 = chrono::high_resolution_clock::now(); 
+            auto outputTensor = mnnNet->getSessionOutput(session, NULL);
+            cout<<"MNN Processing Time: "<<chrono::duration_cast<chrono::milliseconds>(stop2-stop1).count()<<"ms\n";
+        }
+        
+        // cout<<"create new tensor\n";
+        // auto input2 = mnnNet->getSessionInput(session, nullptr);  //MNN::Tensor
+        // cout<<input2->shape()<<endl;
+        ::memcpy(nhwc_data, (float_t *)veriTensor.data_ptr(), nhwc_size);
+        input->copyFromHostTensor(nhwc_Tensor);
+        mnnNet->runSession(session);
+        auto outputTensor4 = mnnNet->getSessionOutput(session, NULL);
+        cout<<outputTensor4->shape()<<endl;
+        outputTensor4->copyToHostTensor(out_TensorHost);
+        auto outTensor4 = torch::from_blob(out_TensorHost->host<float>(), {batchSize,17,64,48});
+        cout<<"Veri SUM: "<<outTensor4.sum()<<endl;
     }
 }

@@ -1,0 +1,82 @@
+- PipeProcessor: WebCamProcessor
+  namespace: avp # default namespace is avp
+  label: videoSrc
+  timing_info: 2.06
+  args:
+    img_flip: true
+
+- PipeProcessor: PaddedResize
+  label: crop
+  timing_info: 0.16
+  args:
+    src_height: \`videoSrc.rawHeight`
+    src_width: \`videoSrc.rawWidth`
+    dst_height: 416
+    dst_width: 416
+  binding:
+  - label: videoSrc # default idx is 0
+
+- PipeProcessor: ColorSpaceConverter
+  label: bgr2rgb
+  timing_info: 0.62
+  binding:
+  - label: crop
+
+- PipeProcessor: DataLayoutConvertion
+  label: matToTensor
+  timing_info: 0.32
+  binding:
+  - label: bgr2rgb
+
+- PipeProcessor: OpenVinoProcessor
+  label: CNN
+  timing_info: 80.38
+  args:
+    dims: [1,3,416,416]
+    data_layout: \`avp::NCHW`
+    model_path: C:\\Users\\shoot\\Programming\\CV_Experiments\\tensorflow-yolo-v3\\frozen_darknet_yolov3_model
+    num_output: 2
+    device: CPU
+  binding:
+  - label: matToTensor
+
+- PipeProcessor: YOLOParser
+  label: yoloRegion
+  timing_info: 2.84
+  binding:
+  - label: CNN
+    idx: 0
+  - label: CNN
+    idx: 1
+
+- PipeProcessor: NonMaxSuppressionV2
+  label: NMS
+  timing_info: 0.18
+  args:
+    num_classes: 80
+  binding:
+  - label: yoloRegion
+
+- PipeProcessor: DrawDetBoxes
+  label: draw
+  timing_info: 0.04
+  args:
+    h_scale: \`1.0/crop.ratio`
+    w_scale: \`1.0/crop.ratio`
+    h_offset: \`-1.0*crop.top/crop.ratio`
+    w_offset: \`-1.0*crop.left/crop.ratio`
+    idx_order: [1,0,3,2]
+    class_idx: 5
+    prob_idx: 4
+    class_file: C:\\Users\\shoot\\Programming\\CV_Experiments\\tensorflow-yolo-v3\\coco.names
+  binding:
+  - label: NMS
+  - label: videoSrc
+
+- PipeProcessor: StreamShowProcessor
+  label: imshow
+  timing_info: 23.28
+  args:
+    wait_time: 1
+  binding:
+  - label: draw

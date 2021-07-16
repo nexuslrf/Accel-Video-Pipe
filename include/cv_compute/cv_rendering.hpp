@@ -110,5 +110,4 @@ public:
         out_data_list[0].loadData(showFrame);
     }
 };
-
 }

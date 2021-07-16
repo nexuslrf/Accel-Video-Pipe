@@ -64,6 +64,7 @@ int main()
     vector<torch::jit::IValue> inputs;
     inputs.push_back(modelInput);
     // libTorch models
+    string modelDir = "C:\\Users\\Ruofan\\Programming\\Accel-Video-Pipe\\models";
     torch::jit::script::Module model, gaussianModulation;
     model = torch::jit::load("/Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/pose_resnet_34_256x192.zip");
     gaussianModulation = torch::jit::load("/Users/liangruofan1/Program/CV_Models/HRNet-Human-Pose-Estimation/gaussian_modulation.zip");

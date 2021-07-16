@@ -3,3 +3,11 @@ build
 .DS_Store
 TestCodes
 test_data
+.vs
+dll_temp
+models
+out
+test_cpp
+_output
+__pycache__
+logs.txt
