@@ -12,7 +12,8 @@ public:
     float probThres;
     Tensor probs;
     cv::Scalar color;
-    DrawLandMarks(float h_scale=1.0, float w_scale=1.0, int h_offset=0, int w_offset=0, float prob_thres=0, int r=2, cv::Scalar c={0,0,255}, std::string pp_name=""): 
+    DrawLandMarks(float h_scale=1.0, float w_scale=1.0, int h_offset=0, int w_offset=0, float prob_thres=0, 
+        int r=2, cv::Scalar c={0,0,255}, std::string pp_name="DrawLandMarks"): 
         PipeProcessor(2, 1, AVP_MAT, pp_name, STREAM_PROC), heightScale(h_scale), widthScale(w_scale), 
         heightOffset(h_offset), widthOffset(w_offset), radius(r), probThres(prob_thres), color(c)
     {
@@ -68,7 +69,8 @@ public:
     int heightOffset, widthOffset;
     float probThres;
     cv::Scalar color;
-    DrawDetBoxes(float h_scale=1.0, float w_scale=1.0, int h_offset=0, int w_offset=0, float prob_thres=0, cv::Scalar c={0,255,0}, std::string pp_name=""): 
+    DrawDetBoxes(float h_scale=1.0, float w_scale=1.0, int h_offset=0, int w_offset=0, 
+        float prob_thres=0, cv::Scalar c={0,255,0}, std::string pp_name="DrawDetBoxes"): 
         PipeProcessor(2, 1, AVP_MAT, pp_name, STREAM_PROC), heightScale(h_scale), widthScale(w_scale), 
         heightOffset(h_offset), widthOffset(w_offset), probThres(prob_thres), color(c)
     {

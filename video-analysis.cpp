@@ -23,7 +23,8 @@ int sigma = 2;
 float eps = 1e-8;
 cv::Scalar mean(0.485, 0.456, 0.406), stdev(0.229, 0.224, 0.225);
 vector<int> flipOrder{0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15};
-
+int skeleton[19][2] = {{16,14},{14,12},{17,15},{15,13},{12,13},{6,12},{7,13}, {6,7},{6,8},
+        {7,9},{8,10},{9,11},{2,3},{1,2},{1,3},{2,4},{3,5},{1,6},{1,7}};
 class KeyPoints {
     public:
         vector<cv::Point2i> coords;
@@ -77,16 +78,18 @@ int main()
 //         cap.open(parser.get<int>("device"));
 // */ 
     cap.open("/Users/liangruofan1/Program/Accel-Video-Pipe/test_data/kunkun_nmsl.mp4");
-//     // cap.open(0);
-//     // cap.set(CAP_PROP_FPS, 20);
+    // cap.open(0);
+    // cap.set(CAP_PROP_FPS, 20);
     fps = cap.get(cv::CAP_PROP_FPS);
     rawWidth = cap.get(cv::CAP_PROP_FRAME_WIDTH);
     rawHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
 
-#ifdef _IMG
-    frame = cv::imread("/Users/liangruofan1/Program/CNN_Deployment/messi.jpg", 1);
-    rawWidth = frame.cols, rawHeight = frame.rows;
-#endif
+// #ifdef _IMG
+    // frame = cv::imread("/Users/liangruofan1/Program/Accel-Video-Pipe/test_data/mj_bj.png", 1);
+    // frame = cv::imread("/Users/liangruofan1/Program/Accel-Video-Pipe/test_data/cxk.png", 1);
+
+    // rawWidth = frame.cols, rawHeight = frame.rows;
+// #endif
     ratio = 1.0 * modelWidth / modelHeight;
     if (rawWidth * modelHeight > rawHeight * modelWidth)
     {
@@ -122,8 +125,11 @@ int main()
     // }
     
     /* OpenCV pre-processing */
-    showFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
-    cv::cvtColor(showFrame, tmpFrame, cv::COLOR_BGR2RGB);
+    cv::Rect ROI(cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
+    showFrame = frame(ROI);
+    scale = 1.0 * showFrame.cols / outWidth;
+    tmpFrame = cropResize(frame, cropWidthLowBnd, cropHeightLowBnd, cropWidth, cropHeight);
+    cv::cvtColor(tmpFrame, tmpFrame, cv::COLOR_BGR2RGB);
     tmpFrame.convertTo(cropFrame, CV_32F);
     cropFrame = (cropFrame / 255 - mean) / stdev;
     cv::flip(cropFrame, flipFrame, +1);
@@ -165,9 +171,22 @@ int main()
     /* OpenCV visualization */
     auto vis = probs > 0.3;
     auto vis_a = vis.accessor<bool, 3>();
+    
+    for(int i=0; i<19; i++)
+    {
+        int a, b;
+        a = skeleton[i][0] - 1;
+        b = skeleton[i][1] - 1;
+        if(vis_a[0][a][0] && vis_a[0][b][0])
+        {
+            cv::line(showFrame, keyPointsList[0].coords[a], keyPointsList[0].coords[b], {255,255,255}, 4);
+        }
+    }
+
     for(int i=0; i<numJoints; i++)
         if(vis_a[0][i][0])
-            cv::circle(showFrame, keyPointsList[0].coords[i], 2, {0, 0, 255});
+            cv::circle(showFrame, keyPointsList[0].coords[i], 8, {0, 0, 255}, cv::FILLED);
+
     cv::imshow(kWinName, showFrame);
 #ifdef _TIMING
     auto stop4 = chrono::high_resolution_clock::now(); 

@@ -1,0 +1,44 @@
+cmake_minimum_required(VERSION 3.12)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_PREFIX_PATH "/Users/liangruofan1/Program/CNN_Deployment/libtorch")
+
+project( avp_template_project )
+
+set(CMAKE_BUILD_TYPE "Release")
+
+set(OpenCV_DIR "/opt/intel/openvino_2020.1.023/opencv/cmake")
+set(InferenceEngine_DIR "/opt/intel/openvino_2020.1.023/deployment_tools/inference_engine/share")
+set(ONNXRT_ROOT "/Users/liangruofan1/Program/CNN_Deployment/onnxruntime-osx-x64-1.1.2")
+set(ONNXRT_LIB "${ONNXRT_ROOT}/lib/libonnxruntime.1.1.2.dylib")
+set(ONNXRT_INLCUDE "${ONNXRT_ROOT}/include")
+
+find_package( InferenceEngine REQUIRED)
+find_package( OpenCV 4.2 REQUIRED )
+find_package( Torch 1.5 REQUIRED)
+find_package( glog 0.4.0 REQUIRED)
+
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+include_directories( ${ONNXRT_INLCUDE})
+include_directories( "../../include")
+
+message(STATUS "Pytorch status:")
+message(STATUS "    libraries: ${TORCH_LIBRARIES}")
+
+message(STATUS "OpenCV library status:")
+message(STATUS "    version: ${OpenCV_VERSION}")
+message(STATUS "    libraries: ${OpenCV_LIBS}")
+message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
+
+message(STATUS "OpenVINO status")
+message(STATUS "    version: ${InferenceEngine_VERSION}")
+message(STATUS "    libraries: ${InferenceEngine_LIBRARIES}")
+
+# --- AVP::EXEC::BEGIN ---
+add_executable( avp_template_exec avp_template_exec.cpp )
+target_link_libraries( avp_template_exec ${TORCH_LIBRARIES})
+target_link_libraries( avp_template_exec ${OpenCV_LIBS} )
+target_link_libraries( avp_template_exec ${InferenceEngine_LIBRARIES})
+target_link_libraries( avp_template_exec ${ONNXRT_LIB})
+target_link_libraries( avp_template_exec glog::glog)
+# --- AVP::EXEC::END ---

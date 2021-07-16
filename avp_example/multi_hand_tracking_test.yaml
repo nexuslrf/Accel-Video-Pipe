@@ -1,6 +1,8 @@
-- PipeProcessor: WebCamProcessor
+- PipeProcessor: VideoFileProcessor
   label: videoSrc
-  timing_info: 12.16
+  timing_info: 2.06
+  args:
+    file_path: /Users/liangruofan1/Program/Accel-Video-Pipe/test_data/hand_video.mp4
 
 - PipeProcessor: CenterCropResize
   label: crop

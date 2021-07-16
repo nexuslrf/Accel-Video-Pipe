@@ -19,7 +19,7 @@ class ONNXRuntimeProcessor: public NNProcessor {
 public:
     Ort::Env env;
     ONNXRuntimeProcessor(SizeVector dims, DataLayout data_layout, std::string model_path, int num_output=1,
-        std::string pp_name = ""): NNProcessor(dims, ONNX_RT, data_layout, num_output, pp_name), 
+        std::string pp_name = "ONNXRuntimeProcessor"): NNProcessor(dims, ONNX_RT, data_layout, num_output, pp_name), 
         memInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)), env(ORT_LOGGING_LEVEL_WARNING, "test")
     {
         // env_ptr = &env;
@@ -71,7 +71,14 @@ public:
         {
             float* rawPtr = outputTensors[i].Ort::Value::template GetTensorMutableData<float>();
             auto outDims = outputTensors[i].GetTypeInfo().GetTensorTypeAndShapeInfo().GetShape();
-            auto output = torch::from_blob(rawPtr, outDims);
+            Tensor output;
+            if(avp::numThreads > 1)
+            {
+                output = torch::empty(outDims, torch::kF32);
+                memcpy(output.data_ptr(), rawPtr, output.numel() * sizeof(float));
+            }
+            else
+                output = torch::from_blob(rawPtr, outDims);
             out_data_list[i].loadData(output);
         }
     }

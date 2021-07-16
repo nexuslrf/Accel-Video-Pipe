@@ -26,7 +26,13 @@ public:
     {
         Mat frame;
         cap>>frame;
-        out_data_list[0].loadData(frame);
+        if(!frame.empty())
+            out_data_list[0].loadData(frame);
+        else
+        {
+            out_data_list[0].finish = true;
+            finish = true;
+        }
         addTick();
     }
 
@@ -34,7 +40,7 @@ public:
 
 class VideoFileProcessor: public StreamSrcProcessor {
 public:
-    VideoFileProcessor(std::string file_path, std::string pp_name=""): 
+    VideoFileProcessor(std::string file_path, std::string pp_name="VideoFileProcessor"): 
         StreamSrcProcessor(pp_name, VIDEO_FILE)
     {
         cap.open(file_path);
@@ -46,7 +52,7 @@ public:
 
 class WebCamProcessor: public StreamSrcProcessor {
 public:
-    WebCamProcessor(int cam_id= 0, std::string pp_name=""): 
+    WebCamProcessor(int cam_id= 0, std::string pp_name="WebCamProcessor"): 
         StreamSrcProcessor(pp_name, WEB_CAM)
     {
         cap.open(cam_id);

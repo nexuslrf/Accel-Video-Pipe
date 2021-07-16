@@ -11,6 +11,8 @@ find_package( InferenceEngine REQUIRED)
 find_package( OpenCV 4.2 REQUIRED )
 find_package( Torch REQUIRED)
 
+add_definitions(-D_LOG_INFO)
+
 find_package( CUDA )
 if(NOT CUDA_FOUND)
     message(STATUS "Your device doesn't support CUDA!")
@@ -86,5 +88,10 @@ add_executable( util_proc_test util_proc_test.cpp )
 target_link_libraries( util_proc_test "${TORCH_LIBRARIES}")
 target_link_libraries( util_proc_test "${OpenCV_LIBS}" )
 target_link_libraries( util_proc_test "${InferenceEngine_LIBRARIES}")
+
+add_executable( multi_threading multi_threading.cpp )
+target_link_libraries( multi_threading "${TORCH_LIBRARIES}")
+target_link_libraries( multi_threading "${OpenCV_LIBS}" )
+target_link_libraries( multi_threading "${InferenceEngine_LIBRARIES}")
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ldl -pthread -fPIC")

@@ -46,10 +46,6 @@
     w_offset: 0
     prob_thres: 0
     c: [0, 255, 0]
-    idx_order: [0, 1, 2, 3]
-    class_idx: -1
-    prob_idx: -1
-    class_file: ""
   inStreams: 
   - label: boundingBoxes
   - label: matImage
@@ -65,7 +61,6 @@
   label: AVP::REQUIRED
   args:
     file_path: AVP::REQUIRED
-    img_flip: false
   inStreams: []
   outStreams:
   - label: matImage
@@ -75,20 +70,7 @@
   includeFile: cv_compute/cv_stream_src.hpp
   label: AVP::REQUIRED
   args:
-    cam_id: 0
-    img_flip: false
-  inStreams: []
-  outStreams:
-  - label: matImage
-
-- PipeProcessor: ImgFileProcessor
-  namespace: avp
-  includeFile: cv_compute/cv_stream_src.hpp
-  label: AVP::REQUIRED
-  args:
-    file_path: AVP::REQUIRED
-    img_flip: false
-    input_mode: false
+    cam_id: 0 
   inStreams: []
   outStreams:
   - label: matImage
@@ -112,25 +94,6 @@
   - label: croppedMatImage
     annotation: optional
 
-- PipeProcessor: PaddedResize
-  namespace: avp
-  includeFile: cv_compute/cv_transformation.hpp
-  label: AVP::REQUIRED
-  args:
-    src_height: AVP::REQUIRED
-    src_width: AVP::REQUIRED 
-    dst_height: AVP::REQUIRED
-    dst_width: AVP::REQUIRED
-    c: [114, 114, 114]
-    auto_shape: false
-    scale_up: true
-    factor: 64
-    flip_img: false
-  inStreams:
-  - label: matImage
-  outStreams:
-  - label: resizedMatImage
-
 - PipeProcessor: ImgNormalization
   namespace: avp
   includeFile: cv_compute/cv_transformation.hpp
@@ -142,17 +105,6 @@
   - label: matImage
   outStreams:
   - label: normalizedMatImage
-
-- PipeProcessor: ColorSpaceConverter
-  namespace: avp
-  includeFile: cv_compute/cv_transformation.hpp
-  label: AVP::REQUIRED
-  args:
-    convert_code: 4
-  inStreams:
-  - label: inMatImage
-  outStreams:
-  - label: outMatImage
 
 - PipeProcessor: RotateCropResize
   namespace: avp
@@ -226,7 +178,6 @@
     data_layout: \`avp::NCHW`
     model_path: AVP::REQUIRED
     num_output: 1
-    device: CPU
   inStreams:
   - label: inTensor[0]
   - label: others
@@ -326,26 +277,11 @@
     score_t: 0.8
     suppression_t: 0.3
   inStreams:
-  - label: detBoxesTensor
   - label: detScoresTensor
+  - label: detBoxesTensor
   outStreams:
   - label: outDetsTensor
   - label: outLandMarksTensor
-
-- PipeProcessor: NonMaxSuppressionV2
-  namespace: avp
-  includeFile: tensor_compute/det_postprocess.hpp
-  label: AVP::REQUIRED
-  args:
-    num_classes: AVP::REQUIRED
-    score_t: 0.5
-    suppression_t: 0.3
-    min_hw: 2
-    max_hw: 4096
-  inStreams:
-  - label: rawDets
-  outStreams:
-  - label: outDetsTensor
 
 - PipeProcessor:
   namespace: avp
@@ -365,24 +301,6 @@
   - label: keypointsTensor
   outStreams:
   - label: outBoxesTensor
-
-- PipeProcessor: YOLOParser
-  namespace: avp
-  includeFile: tensor_compute/det_postprocess.hpp
-  label: AVP::REQUIRED
-  args:
-    num_classes: 80
-    num_anchors: 2535
-    num_branches: 2
-    raw_anchors: [10, 14, 23, 27, 37, 58, 81, 82, 135, 169, 344, 319]
-  inStreams:
-  - label: branch1
-  - label: branch2
-  - label: branch3
-    annotation: optional
-  outStreams:
-  - label: outBoxesTensor
-
 
 # --- tensor_utils.hpp ---
 - PipeProcessor: DataLayoutConvertion

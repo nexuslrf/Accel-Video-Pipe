@@ -5,7 +5,7 @@
 #   label: videoSrc
 #   timing_info: 2.06
 #   args:
-#     file_path: C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\hand_video.mp4
+#     file_path: /Users/liangruofan1/Program/Accel-Video-Pipe/test_data/hand_video.mp4
 
 - PipeProcessor: CenterCropResize
   label: crop
@@ -35,17 +35,14 @@
   binding:
   - label: normalization
 
-# - PipeProcessor: OpenVinoProcessor
 - PipeProcessor: ONNXRuntimeProcessor
   label: PalmCNN
   timing_info: 37.24
   args:
     dims: [1,3,256,256]
     data_layout: \`avp::NCHW`
-    # model_path: C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\palm_detection_fp16
-    model_path: C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\palm_detection.onnx
+    model_path: /Users/liangruofan1/Program/CV_Models/palm_detector/palm_detection.onnx
     num_output: 2
-    # device: MYRIAD
   binding:
   - label: matToTensor
 
@@ -54,7 +51,7 @@
   timing_info: 0.1
   args:
     num_anchors: 2944
-    anchor_file: C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\anchors.bin
+    anchor_file: /Users/liangruofan1/Program/CV_Models/palm_detector/anchors.bin
     dst_h: 256
     dst_w: 256
     num_keypts: 7
@@ -115,7 +112,7 @@
   args:
     dims: [0,3,256,256]
     data_layout: \`avp::NCHW`
-    model_path: C:\\Users\\shoot\\Programming\\Accel-Video-Pipe\\models\\blaze_hand.onnx
+    model_path: /Users/liangruofan1/Program/CV_Models/hand_keypoint_3d/blaze_hand.onnx
     num_output: 2
   binding:
   - label: multiCropToTensor

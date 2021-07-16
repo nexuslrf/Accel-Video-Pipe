@@ -289,9 +289,15 @@ int main()
                     xmin=xmax = keypointsMatRe(0,0);
                     ymin=ymax = keypointsMatRe(1,0);
                     int k = 0;
+                    for(int j=0; j<numJointConnect; j++)
+                    {
+                        cv::line(showFrame, cv::Point2f(keypointsMatRe(0,jointConnect[j][0]), keypointsMatRe(1,jointConnect[j][0])), 
+                                cv::Point2f(keypointsMatRe(0,jointConnect[j][1]), keypointsMatRe(1,jointConnect[j][1])), {255,255,255}, 4);
+                    }
+                    
                     for(int j=0; j<numKeypointsHand; j++)
                     {
-                        cv::circle(showFrame, cv::Point2f(keypointsMatRe(0,j), keypointsMatRe(1,j)), 4, {255, 0, 0}, -1);
+                        cv::circle(showFrame, cv::Point2f(keypointsMatRe(0,j), keypointsMatRe(1,j)), 8, {0, 0, 255}, cv::FILLED);
                         // cv::circle(cropHands.front().img, cv::Point2f(keypointsHand(0,j)-x_offset+cropHands.front().affineMat.at<float>(0,2), 
                         //                             keypointsHand(1,j)-y_offset+cropHands.front().affineMat.at<float>(1,2)), 2, {0, 255, 0});
                         if(nonFingerId[k] == j)
@@ -305,11 +311,7 @@ int main()
                     }
                     // cv::imshow("PalmDetection", cropHands.front().img);
                     // cv::waitKey();
-                    for(int j=0; j<numJointConnect; j++)
-                    {
-                        cv::line(showFrame, cv::Point2f(keypointsMatRe(0,jointConnect[j][0]), keypointsMatRe(1,jointConnect[j][0])), 
-                                cv::Point2f(keypointsMatRe(0,jointConnect[j][1]), keypointsMatRe(1,jointConnect[j][1])), {255,255,255}, 2);
-                    }
+                    
                     auto handUp = cv::Point2f(keypointsMatRe(0,handUpId), keypointsMatRe(1,handUpId));
                     auto handDown = cv::Point2f(keypointsMatRe(0,handDownId), keypointsMatRe(1,handDownId));
                     handMetaForward.push_back(detMeta(xmin, ymin, xmax, ymax, handUp, handDown, 1));

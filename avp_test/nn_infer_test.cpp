@@ -20,8 +20,7 @@ int main()
         std::string model_path = model_name+".zip";
         avp::LibTorchProcessor CNN(dims, avp::NCHW, model_path);
         std::cout<<"Bind data stream\n";
-        CNN.bindStream(&inStream, avp::AVP_STREAM_IN);
-        CNN.bindStream(&outStream, avp::AVP_STREAM_OUT);
+        CNN.bindStream({&inStream}, {&outStream});
         std::cout<<"Load data packet\n";
         inStream.loadPacket(inData); //inStream.loadPacket(endPacket);
         std::cout<<"Start Processing\n";
@@ -38,8 +37,7 @@ int main()
         std::string model_path = model_name;
         avp::OpenVinoProcessor CNN(dims, avp::NCHW, model_path);
         std::cout<<"Bind data stream\n";
-        CNN.bindStream(&inStream, avp::AVP_STREAM_IN);
-        CNN.bindStream(&outStream, avp::AVP_STREAM_OUT);
+        CNN.bindStream({&inStream}, {&outStream});
         std::cout<<"Load data packet\n";
         inStream.loadPacket(inData); //inStream.loadPacket(endPacket);
         std::cout<<"Start Processing\n";
@@ -56,8 +54,7 @@ int main()
         std::string model_path = model_name+".onnx";
         avp::ONNXRuntimeProcessor CNN(dims, avp::NCHW, model_path);
         std::cout<<"Bind data stream\n";
-        CNN.bindStream(&inStream, avp::AVP_STREAM_IN);
-        CNN.bindStream(&outStream, avp::AVP_STREAM_OUT);
+        CNN.bindStream({&inStream}, {&outStream});
         std::cout<<"Load data packet\n";
         inStream.loadPacket(inData); //inStream.loadPacket(endPacket);
         std::cout<<"Start Processing\n";
@@ -75,8 +72,7 @@ int main()
         std::string model_path = model_name+".onnx";
         avp::TensorRTProcessor CNN(dims, avp::NCHW, model_path);
         std::cout<<"Bind data stream\n";
-        CNN.bindStream(&inStream, avp::AVP_STREAM_IN);
-        CNN.bindStream(&outStream, avp::AVP_STREAM_OUT);
+        CNN.bindStream({&inStream}, {&outStream});
         std::cout<<"Load data packet\n";
         inStream.loadPacket(inData); //inStream.loadPacket(endPacket);
         std::cout<<"Start Processing\n";

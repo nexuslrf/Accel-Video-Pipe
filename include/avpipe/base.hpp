@@ -13,8 +13,14 @@
 #include <vector>
 #include <tuple>
 #include <queue>
-#include <mutex>
 #include <cmath>
+#include <chrono>
+#include <mutex>
+#include <condition_variable>
+
+#ifdef _LOG_INFO
+#include <glog/logging.h>
+#endif
 
 namespace avp {
 
@@ -27,6 +33,21 @@ enum PackType {
     AVP_MAT = 0,
     AVP_TENSOR = 1,
 };
+
+size_t streamCapacity = 5;
+size_t numThreads = 1;
+
+#ifdef _LOG_INFO
+bool log_init_flag = false;
+
+void init_log()
+{
+    google::InitGoogleLogging("AVPipe");
+    FLAGS_minloglevel = 0;
+    FLAGS_logtostderr = 1;
+}
+#endif
+
 class StreamPacket{
 public:
     std::vector<Mat> matList;
@@ -35,6 +56,8 @@ public:
     Tensor tensor_data;
     int timestamp, numConsume;
     PackType dataType;
+    bool finish{false};
+
     StreamPacket(PackType data_type=AVP_TENSOR, int init_timestamp=-1): timestamp(init_timestamp), 
         numConsume(0), dataType(data_type) {}
     StreamPacket(Tensor& tensor_data, int tensor_timestamp=-1): 
@@ -186,9 +209,12 @@ enum StreamType {
 
 class Stream: public std::deque<StreamPacket>{
     std::mutex consumeMutex;
+    std::condition_variable loadCond, spaceCond;
 public:
     std::string name;
     int numConsume;
+    std::vector<Stream*> coupledStreams;
+
     Stream(): numConsume(0) {}
     Stream(std::string s_name, int num_consume=0): name(s_name), numConsume(num_consume)
     {}
@@ -196,27 +222,53 @@ public:
     {
         if(num_consume<=0)
             num_consume = numConsume;
-
-        packet.numConsume = num_consume;
+        for(auto &ptr: coupledStreams)
+            ptr->loadPacket(packet);
+        std::unique_lock<std::mutex> locker(consumeMutex);
+        spaceCond.wait(locker, [&](){return this->size()<=streamCapacity;});
         push_back(packet);
+        back().numConsume = num_consume;
+        locker.unlock();
+        loadCond.notify_one();
     }
     //@TODO: Consume + while(!queue.empty())...
     void releasePacket(iterator& it)
     {
-        std::lock_guard<std::mutex> guard(consumeMutex);
-        it->numConsume--;
-        if(!it->numConsume&&it==begin())
         {
-            pop_front();
+            std::lock_guard<std::mutex> guard(consumeMutex);
+            it->numConsume--;
+            if(!it->numConsume&&it==begin())
+            {
+                pop_front();
+            }
         }
+        spaceCond.notify_one();
     }
     void releasePacket()
     {
-        auto it = begin();
-        std::lock_guard<std::mutex> guard(consumeMutex);
-        it->numConsume--;
-        if(!it->numConsume)
-            pop_front();
+        {
+            std::lock_guard<std::mutex> guard(consumeMutex);
+            auto it = begin();
+            it->numConsume--;
+            if(!it->numConsume)
+                pop_front();
+        }
+        spaceCond.notify_one();
+    }
+    void coupleStream(std::vector<Stream*> stream_ptr_list)
+    {
+        for(auto &ptr: stream_ptr_list)
+        {
+            coupledStreams.push_back(ptr);
+        }
+    }
+    StreamPacket& getPacket()
+    {
+        std::unique_lock<std::mutex> locker(consumeMutex);
+        loadCond.wait(locker, [this](){ return !this->empty();} );
+        // consider release packet here?
+        locker.unlock();
+        return front();
     }
 };
 
@@ -228,16 +280,29 @@ public:
     std::string name;
     // @TODO: vector or map ?
     std::vector<Stream*> inStreams, outStreams;
-    std::vector<Stream::iterator> iterators;
     PPType procType;
     PackType dataType; // only used for output data type
     size_t numInStreams, numOutStreams;
     int timeTick;
-    bool skipEmptyCheck, nullPlaceHolder; // used to skip empty checking, to enable proper functioning
+    bool skipEmptyCheck, finish; // used to skip empty checking, to enable proper functioning
+
+#ifdef _TIMING
+    int cumNum{0};
+    double averageMeter{0};
+#endif
+
     PipeProcessor(int num_instreams, int num_outstreams, PackType data_type, std::string pp_name, PPType pp_type): name(pp_name), 
         procType(pp_type), dataType(data_type), numInStreams(num_instreams), numOutStreams(num_outstreams), 
-        timeTick(-1), skipEmptyCheck(false), nullPlaceHolder(true)
-    {}
+        timeTick(-1), skipEmptyCheck(false), finish(false)
+    {
+#ifdef _LOG_INFO
+        if(!log_init_flag)
+        {
+            init_log();
+            log_init_flag = true;
+        }
+#endif
+    }
     void addTick() {
         timeTick = (timeTick + 1) % MAX_TIME_ROUND;
     }
@@ -245,33 +310,31 @@ public:
     virtual void process() 
     {
         checkStream();
+
         DataList in_data_list, out_data_list;
         int tmp_time=-2;
         bool packetEmpty = false; // streamEmpty = false, timeInconsistent = false;
+        bool pipeFinish = false;
         size_t i;
         for(i=0; i<numInStreams; i++)
         {
-            // @TODO: you may need to think about time sync here! 
             // Right now just assume all streams are coherent.
             StreamPacket in_data;
-            if(inStreams[i]->empty())
+
+            in_data = inStreams[i]->getPacket();
+            pipeFinish = pipeFinish | in_data.finish;
+            if(tmp_time==-2)
+                tmp_time = in_data.timestamp;
+            else if(tmp_time != in_data.timestamp)
             {
-                // streamEmpty = true; // Case checking 1
-                std::cerr<<"[WARNING] "<<typeid(*this).name()<<" streams are not all ready!\n";
-                return;
+                //timeInconsistent = true; // Case checking 2
+#ifdef _LOG_INFO
+                LOG(WARNING)<<typeid(*this).name()<<" inconsistent timestamps of inStream packets\n";
+                // std::cerr<<"[WARNING] "<<typeid(*this).name()<<" inconsistent timestamps of inStream packets";
+#endif                    
+                exit(1);//return;
             }
-            else
-            {
-                in_data = inStreams[i]->front();
-                if(tmp_time==-2)
-                    tmp_time = in_data.timestamp;
-                else if(tmp_time != in_data.timestamp)
-                {
-                    //timeInconsistent = true; // Case checking 2
-                    std::cerr<<"[ERROR] "<<typeid(*this).name()<<" inconsistent timestamps of inStream packets\n";
-                    exit(0);
-                }
-            }
+
             if(!skipEmptyCheck && in_data.empty())
             {
                 packetEmpty = true; // Case checking 3
@@ -280,6 +343,19 @@ public:
                 in_data_list.push_back(in_data); 
                 // No matter what case, in_data_list will be generated
         }
+        
+        finish = pipeFinish;
+
+        if(timeTick == tmp_time)
+        {
+            // @TODO other ways!
+#ifdef _LOG_INFO
+            // std::cerr<<"[WARNING] This packet has been computed!\n";
+            LOG(WARNING)<<"This packet has been computed!\n";
+#endif
+            return;
+        }
+
         if(numInStreams)
             timeTick = tmp_time;
         assert(timeTick >= 0);
@@ -288,7 +364,12 @@ public:
         for(i=0; i<numOutStreams; i++)
         {
             StreamPacket out_data(dataType, timeTick);
-            if(packetEmpty)
+            if(pipeFinish)
+            {
+                out_data.finish = true;
+                outStreams[i]->loadPacket(out_data);
+            }
+            else if(packetEmpty)
             {
                 outStreams[i]->loadPacket(out_data);
             }
@@ -299,9 +380,12 @@ public:
             
         }
         
-        if(packetEmpty) // clean up all inStream packets
+        if(packetEmpty || pipeFinish) // clean up all inStream packets
         {
-            std::cerr<<"[WARNING] "<<typeid(*this).name()<<" clean up all inStream packets\n";
+#ifdef _LOG_INFO            
+            // std::cerr<<"[WARNING] "<<typeid(*this).name()<<" clean up all inStream packets\n";
+            LOG(WARNING)<<typeid(*this).name()<<" clean up all inStream packets";
+#endif            
             for(i=0; i<numInStreams; i++)
             {
                 inStreams[i]->releasePacket();
@@ -309,72 +393,41 @@ public:
             return;
         }
 
+#ifdef _TIMING
+        auto stop1 = std::chrono::high_resolution_clock::now();
+#endif
+
+#ifdef _LOG_INFO
+        LOG(INFO)<<name<<" start run session.";
+#endif
         run(in_data_list, out_data_list);
+#ifdef _LOG_INFO
+        LOG(INFO)<<name<<" finish run session.";
+#endif
+
+#ifdef _TIMING
+        auto stop2 = std::chrono::high_resolution_clock::now();
+        auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(stop2-stop1).count();
+        averageMeter = ((averageMeter * cumNum) + gap) / (cumNum + 1);
+        cumNum++;
+#endif
 
         for(i=0; i<numOutStreams; i++)
-        {
             outStreams[i]->loadPacket(out_data_list[i]);
-        }
         for(i=0; i<numInStreams; i++)
             inStreams[i]->releasePacket();
     }
-    virtual void bindStream(Stream* stream_ptr, StreamType stream_type) 
-    {
-        if(stream_type==AVP_STREAM_IN)
-        {
-            if(inStreams.size()==numInStreams)
-            {
-                std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of inStreams exceeds limit.\n";
-                exit(0);
-            }
-            inStreams.push_back(stream_ptr);
-            stream_ptr->numConsume++;
-        }
-        else if(stream_type==AVP_STREAM_OUT)
-        {
-            if(outStreams.size()==numOutStreams)
-            {
-                std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of outStreams exceeds limit.\n";
-                exit(0);
-            }
-            outStreams.push_back(stream_ptr);
-        }
-    }
-    virtual void bindStream(std::vector<Stream*> stream_ptr_list, StreamType stream_type) 
-    {
-        if(stream_type==AVP_STREAM_IN)
-        {
-            for(auto& stream_ptr: stream_ptr_list)
-            {
-                if(inStreams.size()==numInStreams)
-                {
-                    std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of inStreams exceeds limit.\n";
-                    exit(0);
-                }
-                inStreams.push_back(stream_ptr);
-                stream_ptr->numConsume++;
-            }
-        }
-        else if(stream_type==AVP_STREAM_OUT)
-        {
-            for(auto& stream_ptr: stream_ptr_list)
-            {
-                if(outStreams.size()==numOutStreams)
-                {
-                    std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of outStreams exceeds limit.\n";
-                    exit(0);
-                }
-                outStreams.push_back(stream_ptr);
-            }
-        }
-    }
+    
     virtual void bindStream(std::vector<Stream*> in_stream_ptr_list, std::vector<Stream*> out_stream_ptr_list) 
     {
         for(auto& stream_ptr: in_stream_ptr_list)
         {
             if(inStreams.size()==numInStreams)
             {
-                std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of inStreams exceeds limit.\n";
+#ifdef _LOG_INFO
+                // std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of inStreams exceeds limit.\n";
+                LOG(ERROR)<<typeid(*this).name()<<" Number of inStreams exceeds limit.";
+#endif
                 exit(0);
             }
             inStreams.push_back(stream_ptr);
@@ -384,7 +437,10 @@ public:
         {
             if(outStreams.size()==numOutStreams)
             {
-                std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of outStreams exceeds limit.\n";
+#ifdef _LOG_INFO                
+                // std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Number of outStreams exceeds limit.\n";
+                LOG(ERROR)<<typeid(*this).name()<<" Number of outStreams exceeds limit.";
+#endif                
                 exit(0);
             }
             outStreams.push_back(stream_ptr);
@@ -395,7 +451,10 @@ public:
         // @TODO: Not sufficient!
         if(inStreams.empty()&&outStreams.empty())
         {
-            std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Streams are empty!\n";
+#ifdef _LOG_INFO            
+            // std::cerr<<"[ERROR] "<<typeid(*this).name()<<" Streams are empty!\n";
+            LOG(ERROR)<<typeid(*this).name()<<" Streams are empty!";
+#endif            
             exit(0);
         }
     }
@@ -412,4 +471,27 @@ public:
     }
     // virtual void Stop() = 0;
 };
+
 }
+
+    // StreamPacket& getPacket()
+    // {
+    //     bool is_empty = empty();
+    //     std::__1::chrono::steady_clock::time_point stop1;
+    //     if(is_empty)
+    //     {
+    //         std::cout<<"Wait for Packet!\n";
+    //         stop1 = std::chrono::high_resolution_clock::now();
+    //     }
+    //     std::unique_lock<std::mutex> locker(consumeMutex);
+    //     loadCond.wait(locker, [this](){ return !this->empty();} );
+    //     // consider release packet here?
+    //     locker.unlock();
+    //     if(is_empty)
+    //     {
+    //         auto stop2 = std::chrono::high_resolution_clock::now();
+    //         auto gap = std::chrono::duration_cast<std::chrono::milliseconds>(stop2-stop1).count();
+    //         std::cout<<"Time spent:" <<gap<<" ms\n";
+    //     }
+    //     return front();
+    // }
